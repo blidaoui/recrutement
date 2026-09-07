@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
+    "build": "echo 'Backend build skipped'",
     "dev": "nodemon src/server.js",
     "dev:backend": "nodemon src/server.js",
     "start": "node src/server.js",
