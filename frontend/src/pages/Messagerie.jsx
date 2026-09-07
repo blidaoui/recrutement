@@ -58,8 +58,7 @@ export default function Messagerie() {
   useEffect(() => {
     loadConversations();
 
-    socket.auth = { token: document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('token='))?.split('=')[1] };
-    socket.connect();
+    if (!socket.connected) socket.connect();
 
     socket.on('new_message', (msg) => {
       setMessages((prev) => {

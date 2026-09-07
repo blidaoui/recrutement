@@ -10,11 +10,14 @@ export default function Navbar() {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      if (socket.connected) socket.disconnect();
+      setUnread(0);
+      return;
+    }
 
     api.get('/messages/unread-count').then(r => setUnread(r.data.count)).catch(() => {});
 
-    socket.auth = { token: document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('token='))?.split('=')[1] };
     if (!socket.connected) socket.connect();
 
     const onNotif = () => setUnread(n => n + 1);

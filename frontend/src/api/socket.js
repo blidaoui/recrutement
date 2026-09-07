@@ -1,13 +1,14 @@
 import { io } from 'socket.io-client';
 
-function getCookie(name) {
-  return document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(name + '='))?.split('=')[1];
-}
+const SOCKET_URL = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+  : 'http://localhost:5000';
 
-const socket = io('http://localhost:5000', {
+const socket = io(SOCKET_URL, {
   autoConnect: false,
   withCredentials: true,
-  auth: () => ({ token: getCookie('token') }),
+  transports: ['polling', 'websocket'],
 });
 
 export default socket;
+

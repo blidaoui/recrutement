@@ -21,11 +21,18 @@ const messagesRoutes     = require('./routes/messages.routes');
 const app    = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+];
+
 const io = new Server(server, {
-  cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true },
+  cors: { origin: allowedOrigins, credentials: true },
 });
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(session({
@@ -54,18 +61,22 @@ app.use((err, req, res, next) => {
 });
 
 // ── Socket.io — real-time messaging ──────────────────────────
-// Authenticate socket via JWT cookie or auth header
+// Authenticate socket via cookie or auth object
 io.use((socket, next) => {
   try {
-    const token =
-      socket.handshake.auth?.token ||
-      socket.handshake.headers?.cookie?.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
+    let token = socket.handshake.auth?.token;
+    const cookieHeader = socket.handshake.headers?.cookie;
+
+    if (!token && cookieHeader) {
+      const match = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('token='));
+      if (match) token = match.split('=')[1];
+    }
 
     if (!token) return next(new Error('Non authentifié'));
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change_this_secret_key_in_production');
     socket.userId = decoded.id;
     next();
-  } catch {
+  } catch (err) {
     next(new Error('Token invalide'));
   }
 });
