@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import OffreCard from '../components/OffreCard';
+import SearchableSelect from '../components/Searchableselect';
+import { COUNTRIES } from '../data/countries';
 import { useAuth } from '../context/AuthContext';
 import { RiSearchAi2Line } from "react-icons/ri";
 import { RiUserLocationFill } from "react-icons/ri";
@@ -168,25 +170,16 @@ export default function Offres() {
           )}
         </div>
 
-        <div className="offres-search-input-wrap offres-search-input-wrap--sm">
-          <span className="search-icon"><RiUserLocationFill /></span>
-          <input
-            type="text"
-            list="pays-list"
-            placeholder="Pays..."
-            value={filterPays}
-            onChange={(e) => setFilterPays(e.target.value)}
-            className="offres-search-input"
-          />
-          {filterPays && (
-            <button type="button" className="search-clear" onClick={() => setFilterPays('')}>✕</button>
-          )}
-          <datalist id="pays-list">
-            {Array.from(new Set(offres.map((o) => o.pays).filter((p) => p && p !== 'Non précisé'))).map((p) => (
-              <option key={p} value={p} />
-            ))}
-          </datalist>
-        </div>
+        <SearchableSelect
+          icon={<RiUserLocationFill />}
+          placeholder="Pays..."
+          value={filterPays}
+          onChange={setFilterPays}
+          options={Array.from(new Set([
+            ...COUNTRIES,
+            ...offres.map((o) => o.pays).filter((p) => p && p !== 'Non précisé'),
+          ])).sort((a, b) => a.localeCompare(b, 'fr'))}
+        />
 
         <select className="offres-filter-select" value={filterContrat} onChange={(e) => setFilterContrat(e.target.value)}>
           <option value="tous">Tous contrats</option>

@@ -1,6 +1,16 @@
 const express = require('express');
 const passport = require('passport');
-const { register, login, googleCallback, logout, getMe, updateProfile, deleteAccount } = require('../controllers/auth.controller');
+const {
+  register,
+  login,
+  googleCallback,
+  logout,
+  getMe,
+  updateProfile,
+  deleteAccount,
+  forgotPassword,
+  resetPassword,
+} = require('../controllers/auth.controller');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -8,6 +18,10 @@ const router = express.Router();
 // Authentification classique par Email / Mot de passe
 router.post('/register', register);
 router.post('/login', login);
+
+// Mot de passe oublié
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
 
 // Authentification Google OAuth 2.0
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' }));

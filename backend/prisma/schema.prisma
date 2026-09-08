@@ -28,7 +28,8 @@ model User {
   role      Role     @default(CANDIDAT)
   actif     Boolean  @default(true)
   createdAt DateTime @default(now())
-
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
   cvs          CV[]
   offres       Offre[]        @relation("RecruteurOffres")
   candidatures Candidature[]

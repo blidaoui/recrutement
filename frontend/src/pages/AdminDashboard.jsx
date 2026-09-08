@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import ProfileSection from './ProfileSection';
 
 const ROLE_LABELS = { CANDIDAT: 'candidat', RECRUTEUR: 'recruteur', ADMIN: 'admin' };
 const ROLE_COLORS = { CANDIDAT: '#3b82f6', RECRUTEUR: '#8b5cf6', ADMIN: '#ef4444' };
@@ -19,6 +20,7 @@ const PONDERATIONS = [
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const [tab, setTab] = useState('dashboard');
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -135,6 +137,19 @@ export default function AdminDashboard() {
         <p>Bonjour {user?.nom}, voici l'état de votre activité.</p>
       </div>
 
+      <div className="auth-tabs" style={{ marginBottom: '1.5rem' }}>
+        <button type="button" className={`tab-btn ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')}>
+          Tableau de bord
+        </button>
+        <button type="button" className={`tab-btn ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>
+          Mon profil
+        </button>
+      </div>
+
+      {tab === 'profile' && <ProfileSection />}
+
+      {tab === 'dashboard' && (
+      <>
       {/* KPI Cards */}
       {!loading && stats?.admin && (
         <div className="stats-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
@@ -321,6 +336,8 @@ export default function AdminDashboard() {
           </table>
         )}
       </div>
+      </>
+      )}
 
       {/* Modal Ajouter un compte */}
       {showAddModal && (
@@ -448,4 +465,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

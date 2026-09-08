@@ -7,6 +7,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import CandidatureList from '../components/CandidatureList';
 import PublierOffreForm from '../components/PublierOffreForm';
+import ProfileSection from './ProfileSection';
 import { TbPointFilled } from "react-icons/tb";
 import { PiStudentFill } from "react-icons/pi";
 import { CiTimer } from "react-icons/ci";
@@ -32,9 +33,17 @@ export default function RecruteurDashboard() {
   const [showStatutDetail, setShowStatutDetail] = useState(false);
   const [showPerfChart, setShowPerfChart] = useState(false);
 
-  const chargerOffres = () => api.get('/offres').then((res) => setOffres(res.data.offres));
+  const chargerOffres = () => {
+    api.get('/offres').then((res) => {
+      const toutesLesOffres = res.data.offres || [];
+      // '/offres' est l'endpoint public partagé avec la page Offres (visible par tous les rôles).
+      // Ici, sur le tableau de bord recruteur, on ne garde que les offres du recruteur connecté.
+      const mesOffres = toutesLesOffres.filter((o) => o.recruteurId === user?.id);
+      setOffres(mesOffres);
+    });
+  };
 
-  useEffect(() => { chargerOffres(); }, []);
+  useEffect(() => { chargerOffres(); }, [user]);
 
   useEffect(() => {
     if (tab === 'stats' && !stats) {
@@ -110,6 +119,9 @@ export default function RecruteurDashboard() {
         <button type="button" className={`tab-btn ${tab === 'stats' ? 'active' : ''}`} onClick={() => setTab('stats')}>
           Statistiques
         </button>
+        <button type="button" className={`tab-btn ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>
+          Mon profil
+        </button>
       </div>
 
       {/* ── OFFRES TAB ── */}
@@ -158,8 +170,8 @@ export default function RecruteurDashboard() {
                         {offre.experienceMin > 0 && <span className="offre-meta-tag"><CiTimer />{offre.experienceMin} ans exp.</span>}
                         {offre.niveauEtude && offre.niveauEtude !== 'Non précisé' && <span className="offre-meta-tag"><PiStudentFill /> {offre.niveauEtude}</span>}
                         {offre.salaire && <span className="offre-meta-tag"><MdOutlinePriceCheck /> {offre.salaire} DT</span>}
-                        {offre.pays && offre.pays !== 'Non précisé' && <span className="offre-meta-tag"><RiUserLocationFill /> {offre.pays}</span>}
-                        {offre.typeContrat && offre.typeContrat !== 'Non précisé' && <span className="offre-meta-tag"><FaFileAlt/> {offre.typeContrat}</span>}
+                        {offre.pays && offre.pays !== 'Non précisé' && <span className="offre-meta-tag"> {offre.pays}</span>}
+                        {offre.typeContrat && offre.typeContrat !== 'Non précisé' && <span className="offre-meta-tag">{offre.typeContrat}</span>}
                         <span className={`statut-pill ${offre.statut === 'ouverte' ? 'statut-acceptee' : 'statut-refusee'}`}>{offre.statut}</span>
                       </div>
                       <div className="offre-skills">
@@ -321,6 +333,9 @@ export default function RecruteurDashboard() {
           )}
         </>
       )}
+
+      {/* ── PROFILE TAB ── */}
+      {tab === 'profile' && <ProfileSection />}
 
       {offreASupprimer && (
         <div className="modal-overlay">

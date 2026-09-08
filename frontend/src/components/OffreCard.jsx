@@ -44,7 +44,7 @@ export default function OffreCard({ offre, onPostuler, hasApplied, isSubmitting,
             <span className="ocard-meta-pill ocard-meta-pill--salary"><MdOutlinePriceCheck /> {offre.salaire.toLocaleString()} DT</span>
           )}
           {offre.pays && offre.pays !== 'Non précisé' && (
-            <span className="ocard-meta-pill"><RiUserLocationFill /> {offre.pays}</span>
+            <span className="ocard-meta-pill"> {offre.pays}</span>
           )}
           {offre.typeContrat && offre.typeContrat !== 'Non précisé' && (
             <span className="ocard-meta-pill ocard-meta-pill--contrat">{offre.typeContrat}</span>

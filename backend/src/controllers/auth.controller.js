@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const prisma = require('../config/db');
+const { sendResetPasswordEmail } = require('../utils/email');
 
 function generateToken(user) {
   return jwt.sign(
@@ -164,4 +166,110 @@ async function deleteAccount(req, res) {
   }
 }
 
-module.exports = { register, login, googleCallback, logout, getMe, generateToken, updateProfile, deleteAccount };
+// ── Mot de passe oublié ────────────────────────────────────────
+// Étape 1 : l'utilisateur soumet son email, on génère un token à durée de vie limitée
+async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Adresse email requise' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Réponse générique dans tous les cas, pour ne pas révéler si l'email existe en base
+    const genericResponse = {
+      message: 'Si un compte existe avec cet email, un lien de réinitialisation vient d\'être envoyé.',
+    };
+
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    // Token brut envoyé par email ; seul son hash est stocké en base (comme un mot de passe)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: expires,
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendUrl}/reset-password/${rawToken}`;
+
+    await sendResetPasswordEmail(user.email, user.nom, resetLink);
+
+    res.json(genericResponse);
+  } catch (err) {
+    console.error('Erreur mot de passe oublié:', err);
+    res.status(500).json({ message: 'Erreur lors de la demande de réinitialisation' });
+  }
+}
+
+// Étape 2 : l'utilisateur soumet le token reçu par email + son nouveau mot de passe
+async function resetPassword(req, res) {
+  try {
+    const { token } = req.params;
+    const { motDePasse } = req.body;
+
+    if (!token || !motDePasse) {
+      return res.status(400).json({ message: 'Token et nouveau mot de passe requis' });
+    }
+    if (motDePasse.length < 6) {
+      return res.status(400).json({ message: 'Le mot de passe doit contenir au moins 6 caractères' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Lien de réinitialisation invalide ou expiré' });
+    }
+
+    const hashedPassword = await bcrypt.hash(motDePasse, 10);
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        motDePasse: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+
+    // Connecte automatiquement l'utilisateur après la réinitialisation
+    const authToken = generateToken(updated);
+    setTokenCookie(res, authToken);
+
+    const { motDePasse: _, ...userWithoutPassword } = updated;
+
+    res.json({ message: 'Mot de passe réinitialisé avec succès', user: userWithoutPassword });
+  } catch (err) {
+    console.error('Erreur réinitialisation mot de passe:', err);
+    res.status(500).json({ message: 'Erreur lors de la réinitialisation du mot de passe' });
+  }
+}
+
+module.exports = {
+  register,
+  login,
+  googleCallback,
+  logout,
+  getMe,
+  generateToken,
+  updateProfile,
+  deleteAccount,
+  forgotPassword,
+  resetPassword,
+};
