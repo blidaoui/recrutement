@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { RiSearchAi2Line } from "react-icons/ri";
 import { RiUserLocationFill } from "react-icons/ri";
 import { IoReloadOutline } from "react-icons/io5";
+import { ImOffice } from "react-icons/im";
 
 export default function Offres() {
 
@@ -27,8 +28,29 @@ export default function Offres() {
   const [cvFile, setCvFile] = useState(null);
   const [uploadingCv, setUploadingCv] = useState(false);
 
-  const { user } = useAuth();
+  // Modale "connectez-vous pour postuler" (Visiteur non connecté)
+  const [visiteurOffre, setVisiteurOffre] = useState(null);
+
+  // Infos CV du candidat connecté, utilisées pour la modale de confirmation
+  const [monCv, setMonCv] = useState(null);
+
+  // Modale de confirmation avant l'envoi réel de la candidature
+  const [confirmOffre, setConfirmOffre] = useState(null);
+
+  // Édition des infos directement dans la modale de confirmation
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editForm, setEditForm] = useState({ nom: '', email: '', telephone: '' });
+  const [savingInfo, setSavingInfo] = useState(false);
+
+  // Remplacement du CV directement dans la modale de confirmation
+  const [replacingCv, setReplacingCv] = useState(false);
+  const [newCvFile, setNewCvFile] = useState(null);
+  const [uploadingNewCv, setUploadingNewCv] = useState(false);
+
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
+
+  const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
 
   const chargerOffres = async () => {
     try {
@@ -52,9 +74,24 @@ export default function Offres() {
     }
   };
 
+  const chargerMonCv = async () => {
+    if (user?.role === 'CANDIDAT') {
+      try {
+        const res = await api.get('/cv/mes-cv');
+        const cvs = res.data.cvs || [];
+        setMonCv(cvs.length > 0 ? cvs[0] : null);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      setMonCv(null);
+    }
+  };
+
   useEffect(() => {
     chargerOffres();
     chargerMesCandidatures();
+    chargerMonCv();
   }, [user]);
 
   const appliedOffreIds = new Set(mesCandidatures.map((c) => c.offreId));
@@ -83,6 +120,83 @@ export default function Offres() {
       navigate(`/messages?conv=${res.data.conversation.id}`);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handlePostulerVisiteur = (offre) => {
+    setVisiteurOffre(offre);
+  };
+
+  const confirmerConnexion = () => {
+    if (!visiteurOffre) return;
+    localStorage.setItem('pendingOffreId', String(visiteurOffre.id));
+    navigate(`/login?redirect=/offres&offreId=${visiteurOffre.id}`);
+  };
+
+  // Si l'utilisateur vient de se connecter et qu'une candidature était en attente
+  // (déclenchée depuis la modale "Connectez-vous pour postuler"), on rouvre la
+  // modale de confirmation sur cette offre — on ne postule jamais sans que le
+  // candidat ait revu et validé ses informations.
+  useEffect(() => {
+    const pendingOffreId = localStorage.getItem('pendingOffreId');
+    if (!pendingOffreId || user?.role !== 'CANDIDAT' || offres.length === 0) return;
+
+    localStorage.removeItem('pendingOffreId');
+    const matchedOffre = offres.find((o) => String(o.id) === String(pendingOffreId));
+    if (matchedOffre && !appliedOffreIds.has(matchedOffre.id)) {
+      setConfirmOffre(matchedOffre);
+      setEditingInfo(false);
+      setReplacingCv(false);
+      setNewCvFile(null);
+      setEditForm({
+        nom: user?.nom || '',
+        email: monCv?.emailExtrait || user?.email || '',
+        telephone: monCv?.telephoneExtrait || '',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, offres]);
+
+  // Point d'entrée du bouton "Postuler" (OffreCard ne transmet que l'id) :
+  // on affiche toujours d'abord la récapitulation des informations du
+  // candidat avant l'envoi réel de la candidature.
+  const handleDemandePostuler = (offreId) => {
+    const offre = offres.find((o) => String(o.id) === String(offreId));
+    if (offre) {
+      setConfirmOffre(offre);
+      setEditingInfo(false);
+      setReplacingCv(false);
+      setNewCvFile(null);
+      setEditForm({
+        nom: user?.nom || '',
+        email: monCv?.emailExtrait || user?.email || '',
+        telephone: monCv?.telephoneExtrait || '',
+      });
+    }
+  };
+
+  // Enregistre les modifications faites directement dans la modale de confirmation :
+  // nom/email sur le profil utilisateur, téléphone sur le CV actif.
+  const handleSaveInfo = async () => {
+    setSavingInfo(true);
+    setNotification('');
+    try {
+      const resProfile = await api.put('/auth/profile', { nom: editForm.nom, email: editForm.email });
+      if (resProfile.data?.user) setUser(resProfile.data.user);
+
+      if (monCv) {
+        await api.put('/cv/contact', {
+          telephoneExtrait: editForm.telephone,
+          emailExtrait: editForm.email,
+        });
+      }
+
+      await chargerMonCv();
+      setEditingInfo(false);
+    } catch (err) {
+      setNotification(` ${err.response?.data?.message || 'Erreur lors de la mise à jour de vos informations'}`);
+    } finally {
+      setSavingInfo(false);
     }
   };
 
@@ -126,10 +240,49 @@ export default function Offres() {
       setTargetOffreId(null);
       setCvFile(null);
       chargerMesCandidatures();
+      chargerMonCv();
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de l\'envoi du CV');
     } finally {
       setUploadingCv(false);
+    }
+  };
+
+
+  // Ferme la modale de confirmation et remet à zéro tous ses sous-états
+  // (édition d'infos, remplacement de CV) pour la prochaine ouverture.
+  const closeConfirmModal = () => {
+    setConfirmOffre(null);
+    setEditingInfo(false);
+    setReplacingCv(false);
+    setNewCvFile(null);
+  };
+
+  // Remplace le CV actif du candidat (accessible à tout moment depuis la modale
+  // de confirmation, pas seulement quand il n'a pas encore de CV).
+  const handleReplaceCv = async (e) => {
+    e.preventDefault();
+    if (!newCvFile) return;
+
+    setUploadingNewCv(true);
+    setNotification('');
+
+    try {
+      const formData = new FormData();
+      formData.append('cv', newCvFile);
+
+      await api.post('/cv/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      await chargerMonCv();
+      setNewCvFile(null);
+      setReplacingCv(false);
+      setNotification('Votre CV a été mis à jour avec succès !');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors du remplacement du CV');
+    } finally {
+      setUploadingNewCv(false);
     }
   };
 
@@ -221,7 +374,8 @@ export default function Offres() {
                 offre={offre}
                 hasApplied={appliedOffreIds.has(offre.id)}
                 isSubmitting={submittingId === offre.id}
-                onPostuler={user?.role === 'CANDIDAT' ? postuler : null}
+                onPostuler={user?.role === 'CANDIDAT' ? handleDemandePostuler : null}
+                onPostulerVisiteur={!user ? handlePostulerVisiteur : null}
                 onContactRecruteur={user?.role === 'CANDIDAT' ? handleContactRecruteur : null}
               />
             ))}
@@ -276,6 +430,268 @@ export default function Offres() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de confirmation avant l'envoi réel de la candidature */}
+      {confirmOffre && (
+        <div className="modal-overlay" onClick={() => closeConfirmModal()}>
+          <div className="modal-card login-prompt-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirmer votre candidature</h3>
+              <button
+                type="button"
+                className="close-modal-btn"
+                onClick={() => closeConfirmModal()}
+              >
+                X
+              </button>
+            </div>
+
+            <div className="login-prompt-offre">
+              <span className="login-prompt-offre-icon"><ImOffice /></span>
+              <div className="login-prompt-offre-info">
+                <h4>{confirmOffre.titre}</h4>
+                {confirmOffre.entreprise && <p>{confirmOffre.entreprise}</p>}
+                {confirmOffre.pays && confirmOffre.pays !== 'Non précisé' && (
+                  <span className="login-prompt-pays">{confirmOffre.pays}</span>
+                )}
+              </div>
+            </div>
+
+            {monCv ? (
+              <>
+                <p className="modal-desc">
+                  Voici les informations extraites de votre CV qui seront transmises au recruteur. Vérifiez qu'elles sont à jour avant d'envoyer votre candidature.
+                </p>
+
+                <div className="apply-cv-card">
+                  <div className="apply-cv-info">
+                    <span className="apply-cv-icon">📄</span>
+                    <div className="apply-cv-details">
+                      <span className="apply-cv-name">{monCv.nomFichier || 'Mon CV'}</span>
+                      {monCv.fileUrl && (
+                        <a
+                          href={`${API_BASE}${monCv.fileUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="apply-cv-view-link"
+                        >
+                          Voir le fichier
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {!replacingCv && (
+                    <button type="button" className="link-btn" onClick={() => setReplacingCv(true)}>
+                      Remplacer mon CV
+                    </button>
+                  )}
+                </div>
+
+                {replacingCv && (
+                  <form onSubmit={handleReplaceCv} className="modal-form apply-cv-replace-form">
+                    <div className="file-drop-area">
+                      <input
+                        type="file"
+                        accept=".pdf,.docx"
+                        onChange={(e) => setNewCvFile(e.target.files[0])}
+                        required
+                      />
+                      <div className="file-drop-message">
+                        {newCvFile ? ` ${newCvFile.name}` : ' Cliquez pour sélectionner un nouveau CV (PDF/DOCX)'}
+                      </div>
+                    </div>
+                    <div className="modal-actions">
+                      <button
+                        type="button"
+                        className="btn-cancel"
+                        onClick={() => { setReplacingCv(false); setNewCvFile(null); }}
+                        disabled={uploadingNewCv}
+                      >
+                        Annuler
+                      </button>
+                      <button type="submit" className="btn-modal-submit" disabled={uploadingNewCv || !newCvFile}>
+                        {uploadingNewCv ? 'Analyse IA en cours...' : 'Mettre à jour mon CV'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {editingInfo ? (
+                  <>
+                    <div className="apply-confirm-fields apply-confirm-fields--edit">
+                      <div className="form-group">
+                        <label>Nom</label>
+                        <input
+                          value={editForm.nom}
+                          onChange={(e) => setEditForm((f) => ({ ...f, nom: e.target.value }))}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Email</label>
+                        <input
+                          type="email"
+                          value={editForm.email}
+                          onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Téléphone</label>
+                        <input
+                          value={editForm.telephone}
+                          onChange={(e) => setEditForm((f) => ({ ...f, telephone: e.target.value }))}
+                          placeholder="Non renseigné"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="modal-actions">
+                      <button type="button" className="btn-cancel" onClick={() => setEditingInfo(false)} disabled={savingInfo}>
+                        Annuler
+                      </button>
+                      <button type="button" className="btn-modal-submit" onClick={handleSaveInfo} disabled={savingInfo}>
+                        {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="apply-confirm-fields">
+                      <div className="apply-confirm-field">
+                        <span className="apply-confirm-label">Nom</span>
+                        <span className="apply-confirm-value">{user?.nom || '—'}</span>
+                      </div>
+                      <div className="apply-confirm-field">
+                        <span className="apply-confirm-label">Email</span>
+                        <span className="apply-confirm-value">{monCv.emailExtrait || user?.email || '—'}</span>
+                      </div>
+                      <div className="apply-confirm-field">
+                        <span className="apply-confirm-label">Téléphone</span>
+                        <span className="apply-confirm-value">{monCv.telephoneExtrait || 'Non renseigné'}</span>
+                      </div>
+                    </div>
+
+                    {monCv.skillsExtraites?.length > 0 && (
+                      <div className="apply-confirm-skills">
+                        {monCv.skillsExtraites.slice(0, 10).map((s) => (
+                          <span key={s} className="mini-skill-badge">{s}</span>
+                        ))}
+                        {monCv.skillsExtraites.length > 10 && (
+                          <span className="mini-skill-badge extra">+{monCv.skillsExtraites.length - 10}</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="modal-actions">
+                      <button
+                        type="button"
+                        className="btn-cancel"
+                        onClick={() => setEditingInfo(true)}
+                      >
+                        Modifier mes informations
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-modal-submit"
+                        disabled={submittingId === confirmOffre.id}
+                        onClick={async () => {
+                          const offreId = confirmOffre.id;
+                          closeConfirmModal();
+                          await postuler(offreId);
+                        }}
+                      >
+                        {submittingId === confirmOffre.id ? 'Envoi...' : 'Confirmer et postuler →'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="modal-desc">
+                  Vous n'avez pas encore de CV enregistré. Ajoutez-en un pour que notre IA extraie vos informations et calcule votre score de matching avant l'envoi.
+                </p>
+                <div className="modal-actions">
+                  <button type="button" className="btn-cancel" onClick={() => closeConfirmModal()}>
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-modal-submit"
+                    onClick={() => {
+                      const offreId = confirmOffre.id;
+                      closeConfirmModal();
+                      setTargetOffreId(offreId);
+                    }}
+                  >
+                    Ajouter mon CV
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modale "Connectez-vous pour postuler" (Visiteur non connecté) */}
+      {visiteurOffre && (
+        <div className="modal-overlay" onClick={() => setVisiteurOffre(null)}>
+          <div className="modal-card login-prompt-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Connectez-vous pour postuler</h3>
+              <button
+                type="button"
+                className="close-modal-btn"
+                onClick={() => setVisiteurOffre(null)}
+              >
+                X
+              </button>
+            </div>
+
+            <div className="login-prompt-offre">
+              <span className="login-prompt-offre-icon"><ImOffice /></span>
+              <div className="login-prompt-offre-info">
+                <h4>{visiteurOffre.titre}</h4>
+                {visiteurOffre.entreprise && <p>{visiteurOffre.entreprise}</p>}
+                {visiteurOffre.pays && visiteurOffre.pays !== 'Non précisé' && (
+                  <span className="login-prompt-pays">{visiteurOffre.pays}</span>
+                )}
+              </div>
+            </div>
+
+            <p className="modal-desc">
+              Pour envoyer votre candidature{visiteurOffre.entreprise ? ` à ${visiteurOffre.entreprise}` : ''}, connectez-vous d'abord à votre compte candidat. Vous reviendrez directement sur cette offre après connexion.
+            </p>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => setVisiteurOffre(null)}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="btn-modal-submit"
+                onClick={confirmerConnexion}
+              >
+                Se connecter
+              </button>
+            </div>
+
+            <p className="login-prompt-signup">
+              Pas encore de compte ?{' '}
+              <button
+                type="button"
+                className="login-prompt-link"
+                onClick={() => navigate('/register')}
+              >
+                Inscrivez-vous
+              </button>
+            </p>
           </div>
         </div>
       )}

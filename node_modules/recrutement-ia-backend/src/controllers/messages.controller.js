@@ -1,8 +1,8 @@
 const prisma = require('../config/db');
 
 const CONV_INCLUDE = {
-  candidat:  { select: { id: true, nom: true, email: true } },
-  recruteur: { select: { id: true, nom: true, email: true } },
+  candidat:  { select: { id: true, nom: true, email: true, photoProfil: true } },
+  recruteur: { select: { id: true, nom: true, email: true, photoProfil: true } },
         messages:  { orderBy: { createdAt: 'desc' }, take: 1 },
 };
 
@@ -19,8 +19,8 @@ async function getConversations(req, res) {
     const convs = await prisma.conversation.findMany({
       where,
       include: {
-        candidat:  { select: { id: true, nom: true, email: true } },
-        recruteur: { select: { id: true, nom: true, email: true } },
+        candidat:  { select: { id: true, nom: true, email: true, photoProfil: true } },
+        recruteur: { select: { id: true, nom: true, email: true, photoProfil: true } },
         messages:  { orderBy: { createdAt: 'desc' }, take: 1 },
       },
       orderBy: { createdAt: 'desc' },

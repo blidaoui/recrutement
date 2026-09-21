@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
 
@@ -7,6 +8,7 @@ const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
 export default function ResetPassword() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const { setUser } = useAuth();
 
   const [motDePasse, setMotDePasse] = useState('');
   const [confirmMotDePasse, setConfirmMotDePasse] = useState('');
@@ -38,6 +40,11 @@ export default function ResetPassword() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Erreur lors de la réinitialisation');
+
+      // Le backend a déjà posé le cookie d'authentification à ce stade ;
+      // on met à jour le contexte tout de suite pour que l'app reflète
+      // immédiatement la connexion, sans attendre un rechargement.
+      if (data.user) setUser(data.user);
 
       setSuccess(true);
       setTimeout(() => navigate('/offres'), 2000);

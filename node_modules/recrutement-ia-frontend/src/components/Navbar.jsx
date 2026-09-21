@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import socket from '../api/socket';
 import { AiOutlineWechatWork } from "react-icons/ai";
+import Avatar from './Avatar';
 
 function LogoMark() {
   return (
@@ -20,7 +21,13 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Utilisateur déconnecté : on coupe la connexion pour éviter de garder
+      // un socket ouvert avec un token périmé.
+      if (socket.connected) socket.disconnect();
+      setUnread(0);
+      return;
+    }
 
     api.get('/messages/unread-count').then(r => setUnread(r.data.count)).catch(() => {});
 
@@ -74,7 +81,10 @@ export default function Navbar() {
               <span className="nav-messages-label">Messages</span>
               {unread > 0 && <span className="nav-unread-badge">{unread > 9 ? '9+' : unread}</span>}
             </Link>
-            <Link to="/dashboard" className="nav-btn-dashboard" onClick={closeMenu} style={{ '--i': 2 }}>Mon espace</Link>
+            <Link to="/dashboard" className="nav-btn-dashboard" onClick={closeMenu} style={{ '--i': 2 }}>
+              <Avatar user={user} size="sm" />
+              Mon espace
+            </Link>
             <button onClick={() => { logout(); closeMenu(); }} className="nav-btn-logout" style={{ '--i': 3 }}>Déconnexion</button>
           </div>
         ) : (

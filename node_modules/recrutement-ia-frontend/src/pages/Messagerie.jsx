@@ -4,14 +4,7 @@ import api from '../api/axios';
 import socket from '../api/socket';
 import { useAuth } from '../context/AuthContext';
 import { AiOutlineWechatWork } from "react-icons/ai";
-
-function Avatar({ nom, size = 36 }) {
-  return (
-    <div className="msg-avatar" style={{ width: size, height: size, fontSize: size * 0.4 }}>
-      {nom?.charAt(0).toUpperCase()}
-    </div>
-  );
-}
+import Avatar from '../components/Avatar';
 
 export default function Messagerie() {
   const { user } = useAuth();
@@ -193,7 +186,7 @@ export default function Messagerie() {
                   className={`msg-conv-item ${activeConv?.id === conv.id ? 'msg-conv-item--active' : ''}`}
                   onClick={() => openConversation(conv)}
                 >
-                  <Avatar nom={other?.nom} />
+                  <Avatar user={other} size="sm" />
                   <div className="msg-conv-info">
                     <div className="msg-conv-name">{other?.nom}</div>
                     <div className="msg-conv-preview">
@@ -212,7 +205,7 @@ export default function Messagerie() {
       </aside>
 
       {/* Chat area */}
-      <main className="msg-chat">
+      <section className="msg-chat" aria-label="Conversation">
         {!activeConv ? (
           <div className="msg-chat-empty">
             <div className="msg-chat-empty-icon"><AiOutlineWechatWork /></div>
@@ -222,7 +215,7 @@ export default function Messagerie() {
           <>
             {/* Chat header */}
             <div className="msg-chat-header">
-              <Avatar nom={getOther(activeConv)?.nom} size={40} />
+              <Avatar user={getOther(activeConv)} size="md" />
               <div>
                 <div className="msg-chat-name">{getOther(activeConv)?.nom}</div>
                 <div className="msg-chat-email">{getOther(activeConv)?.email}</div>
@@ -278,7 +271,7 @@ export default function Messagerie() {
             </form>
           </>
         )}
-      </main>
+      </section>
     </div>
   );
 }

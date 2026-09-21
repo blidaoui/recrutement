@@ -4,16 +4,47 @@ import { GoPersonFill } from "react-icons/go";
 import { CiTimer } from "react-icons/ci";
 import { GrLanguage } from "react-icons/gr";
 import { PiStudentFill } from "react-icons/pi";
-import { MdOutlinePriceCheck } from "react-icons/md";
+import { MdOutlinePriceCheck, MdOutlineAccessTime } from "react-icons/md";
 import { BsPersonCheckFill } from "react-icons/bs";
 import { GoCheckCircleFill } from "react-icons/go";
 import { AiOutlineWechatWork } from "react-icons/ai";
 
-export default function OffreCard({ offre, onPostuler, hasApplied, isSubmitting, onContactRecruteur }) {
+function formatDatePublication(dateStr) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffJ = Math.floor(diffH / 24);
+
+  if (diffMin < 1) return "À l'instant";
+  if (diffMin < 60) return `Il y a ${diffMin} min`;
+  if (diffH < 24) return `Il y a ${diffH}h`;
+  if (diffJ === 1) return 'Il y a 1 jour';
+  if (diffJ < 7) return `Il y a ${diffJ} jours`;
+  if (diffJ < 30) {
+    const semaines = Math.floor(diffJ / 7);
+    return `Il y a ${semaines} semaine${semaines > 1 ? 's' : ''}`;
+  }
+  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatExperience(exp) {
+  if (exp === null || exp === undefined || exp === '') return null;
+  const trimmed = String(exp).trim();
+  const isPureNumber = /^\d+(\.\d+)?$/.test(trimmed);
+  if (isPureNumber && Number(trimmed) === 0) return null; // "0" = pas de prérequis, on masque comme avant
+  return isPureNumber ? `${trimmed} ans exp.` : trimmed;
+}
+
+export default function OffreCard({ offre, onPostuler, onPostulerVisiteur, hasApplied, isSubmitting, onContactRecruteur }) {
   const [expanded, setExpanded] = useState(false);
   const desc = offre?.description || '';
   const MAX = 130;
   const isLong = desc.length > MAX;
+  const datePubli = formatDatePublication(offre?.createdAt || offre?.datePublication);
 
   return (
     <div className={`ocard ${hasApplied ? 'ocard--applied' : ''}`}>
@@ -28,14 +59,21 @@ export default function OffreCard({ offre, onPostuler, hasApplied, isSubmitting,
               <span className="ocard-company"><GoPersonFill /> {offre.recruteur.nom}</span>
             )}
           </div>
-          <span className={`ocard-statut ${offre.statut === 'ouverte' ? 'ocard-statut--open' : 'ocard-statut--closed'}`}>
-            {offre.statut === 'ouverte' ? 'Ouverte' : 'Fermée'}
+          <span className="ocard-head-right">
+            <span className={`ocard-statut ${offre.statut === 'ouverte' ? 'ocard-statut--open' : 'ocard-statut--closed'}`}>
+              {offre.statut === 'ouverte' ? 'Ouverte' : 'Fermée'}
+            </span>
+            {datePubli && (
+              <span className="ocard-date" title={new Date(offre.createdAt || offre.datePublication).toLocaleString('fr-FR')}>
+                <MdOutlineAccessTime /> {datePubli}
+              </span>
+            )}
           </span>
         </div>
 
         <div className="ocard-meta">
-          {offre.experienceMin > 0 && (
-            <span className="ocard-meta-pill"><CiTimer /> {offre.experienceMin} ans exp.</span>
+          {formatExperience(offre.experienceMin) && (
+            <span className="ocard-meta-pill"><CiTimer /> {formatExperience(offre.experienceMin)}</span>
           )}
           {offre.niveauEtude && offre.niveauEtude !== 'Non précisé' && (
             <span className="ocard-meta-pill"><PiStudentFill /> {offre.niveauEtude}</span>
@@ -104,6 +142,14 @@ export default function OffreCard({ offre, onPostuler, hasApplied, isSubmitting,
               onClick={() => onPostuler(offre.id)}
             >
               {isSubmitting ? ' Envoi...' : offre.statut !== 'ouverte' ? 'Offre fermée' : 'Postuler →'}
+            </button>
+          ) : onPostulerVisiteur ? (
+            <button
+              className="ocard-btn ocard-btn--apply"
+              disabled={offre.statut !== 'ouverte'}
+              onClick={() => onPostulerVisiteur(offre)}
+            >
+              {offre.statut !== 'ouverte' ? 'Offre fermée' : 'Postuler →'}
             </button>
           ) : null}
         </div>

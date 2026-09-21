@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/axios';
+import Avatar from '../components/Avatar';
 
 const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register' | 'forgot'
-  const { login, register } = useAuth();
+  const { login, register, setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,6 +17,10 @@ export default function Login() {
   const [motDePasse, setMotDePasse] = useState('');
   const [nom, setNom] = useState('');
   const [role, setRole] = useState('CANDIDAT');
+
+  // Photo de profil choisie à l'inscription (optionnelle)
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   // Forgot-password states
   const [forgotEmail, setForgotEmail] = useState('');
@@ -32,7 +38,19 @@ export default function Login() {
     } else if (params.get('error') === 'email_exists') {
       setError('Un compte avec cet email existe déjà. Veuillez vous connecter avec votre mot de passe.');
     }
+    if (params.get('tab') === 'register') {
+      setActiveTab('register');
+    }
   }, [location.search]);
+
+  // Construit l'URL de redirection après connexion/inscription, en conservant
+  // l'offre sur laquelle l'utilisateur voulait postuler avant d'être redirigé vers /login
+  const getRedirectTarget = () => {
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') || '/offres';
+    const offreId = params.get('offreId');
+    return offreId ? `${redirect}?postulerOffreId=${offreId}` : redirect;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -41,12 +59,30 @@ export default function Login() {
 
     try {
       await login(email, motDePasse);
-      navigate('/offres');
+      navigate(getRedirectTarget());
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la connexion');
     } finally {
       setLoading(false);
     }
+  };
+
+  const onPhotoChoisie = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Format de photo non supporté (JPG, PNG ou WEBP uniquement)');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setError('Photo trop lourde (3 Mo max)');
+      return;
+    }
+
+    setError('');
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const handleRegister = async (e) => {
@@ -56,7 +92,22 @@ export default function Login() {
 
     try {
       await register({ nom, email, motDePasse, role });
-      navigate('/offres');
+
+      // La photo est optionnelle : si l'upload échoue, on ne bloque pas la création du compte
+      if (photoFile) {
+        try {
+          const formData = new FormData();
+          formData.append('photo', photoFile);
+          const res = await api.post('/profile/photo', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          setUser(res.data.user);
+        } catch (photoErr) {
+          console.error('Erreur upload photo à l\'inscription', photoErr);
+        }
+      }
+
+      navigate(getRedirectTarget());
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'inscription');
     } finally {
@@ -94,6 +145,8 @@ export default function Login() {
       setRole('CANDIDAT');
       setForgotEmail('');
       setForgotSent(false);
+      setPhotoFile(null);
+      setPhotoPreview(null);
     }
   }, [location.pathname]);
 
@@ -113,14 +166,14 @@ export default function Login() {
             <button
               type="button"
               className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('login'); setError(''); setEmail(''); setMotDePasse(''); setNom(''); }}
+              onClick={() => { setActiveTab('login'); setError(''); setEmail(''); setMotDePasse(''); setNom(''); setPhotoFile(null); setPhotoPreview(null); }}
             >
               Se connecter
             </button>
             <button
               type="button"
               className={`tab-btn ${activeTab === 'register' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('register'); setError(''); setEmail(''); setMotDePasse(''); setNom(''); }}
+              onClick={() => { setActiveTab('register'); setError(''); setEmail(''); setMotDePasse(''); setNom(''); setPhotoFile(null); setPhotoPreview(null); }}
             >
               Créer un compte
             </button>
@@ -181,6 +234,21 @@ export default function Login() {
         {activeTab === 'register' && (
           /* Choix 2: Inscription classique */
           <form onSubmit={handleRegister} autoComplete="off" className="auth-form">
+            <div className="signup-photo-picker">
+              <label htmlFor="register-photo" className="signup-photo-picker-label">
+                <Avatar user={{ nom, photoProfil: photoPreview }} size="lg" />
+                <span className="signup-photo-picker-overlay">📷</span>
+              </label>
+              <input
+                id="register-photo"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={onPhotoChoisie}
+                style={{ display: 'none' }}
+              />
+              <p className="signup-photo-hint">Photo de profil (facultatif)</p>
+            </div>
+
             <div className="form-group">
               <label htmlFor="register-nom">Nom complet</label>
               <input
@@ -329,7 +397,10 @@ export default function Login() {
             </div>
 
             {/* Choix 3: Google OAuth */}
-            <a href={`${API_BASE}/api/auth/google`} className="btn-google-oauth">
+            {/* ⚠️ Pour que "postuler en visiteur" fonctionne aussi via Google, ton contrôleur
+               /api/auth/google doit relire `redirect`/`offreId` (via le `state` OAuth ou la session)
+               et rediriger vers getRedirectTarget() équivalent après le callback Google. */}
+            <a href={`${API_BASE}/api/auth/google${location.search}`} className="btn-google-oauth">
               <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="#4285F4"

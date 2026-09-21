@@ -1,8 +1,11 @@
 import { useState, useRef } from 'react';
+import { COUNTRIES } from '../data/countries';
 
 const NIVEAUX = ['Non précisé', 'Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'];
+const LANGUES_SUGGESTIONS = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Italien', 'Chinois', 'Portugais', 'Turc', 'Russe'];
+const EXPERIENCE_SUGGESTIONS = ['0', '1 an', '1 à 2 ans', '2 à 3 ans', '3 à 5 ans', '5 à 10 ans', '10 ans et +'];
 
-function TagInput({ tags, onChange, placeholder }) {
+function TagInput({ tags, onChange, placeholder, suggestions, listId }) {
   const [input, setInput] = useState('');
   const inputRef = useRef();
 
@@ -37,7 +40,13 @@ function TagInput({ tags, onChange, placeholder }) {
         onBlur={() => input.trim() && addTag(input)}
         placeholder={tags.length === 0 ? placeholder : ''}
         className="tag-input-field"
+        list={suggestions ? listId : undefined}
       />
+      {suggestions && (
+        <datalist id={listId}>
+          {suggestions.filter((s) => !tags.includes(s)).map((s) => <option key={s} value={s} />)}
+        </datalist>
+      )}
     </div>
   );
 }
@@ -49,7 +58,7 @@ export default function PublierOffreForm({ onPublished, onCancel, offre }) {
     description: offre?.description || '',
     skillsObligatoires: offre?.skillsObligatoires || [],
     skillsSouhaitees: offre?.skillsSouhaitees || [],
-    experienceMin: offre?.experienceMin ?? 0,
+    experienceMin: offre?.experienceMin ?? '',
     niveauEtude: offre?.niveauEtude || 'Non précisé',
     langues: offre?.langues || [],
     salaire: offre?.salaire || '',
@@ -147,15 +156,31 @@ export default function PublierOffreForm({ onPublished, onCancel, offre }) {
 
         <div className="publish-row publish-row-3">
           <div className="form-group">
-            <label>Expérience minimale (années)</label>
-            <input type="number" min={0} max={30}
-              value={form.experienceMin} onChange={(e) => set('experienceMin', e.target.value)} />
+            <label>Expérience minimale</label>
+            <input
+              type="text"
+              list="experience-suggestions"
+              placeholder='ex: "2", "1 à 2 ans", "5 ans et +"'
+              value={form.experienceMin}
+              onChange={(e) => set('experienceMin', e.target.value)}
+            />
+            <datalist id="experience-suggestions">
+              {EXPERIENCE_SUGGESTIONS.map((n) => <option key={n} value={n} />)}
+            </datalist>
+            <span className="field-hint">Choisissez une suggestion ou écrivez librement (ex: "1 à 2 ans").</span>
           </div>
           <div className="form-group">
             <label>Niveau d'étude</label>
-            <select value={form.niveauEtude} onChange={(e) => set('niveauEtude', e.target.value)}>
-              {NIVEAUX.map((n) => <option key={n}>{n}</option>)}
-            </select>
+            <input
+              list="niveaux-suggestions"
+              placeholder="Choisissez ou écrivez le vôtre"
+              value={form.niveauEtude}
+              onChange={(e) => set('niveauEtude', e.target.value)}
+            />
+            <datalist id="niveaux-suggestions">
+              {NIVEAUX.map((n) => <option key={n} value={n} />)}
+            </datalist>
+            <span className="field-hint">Sélectionnez une suggestion ou tapez librement (ex: "Ingénieur", "BTS").</span>
           </div>
           <div className="form-group">
             <label>Langues attendues</label>
@@ -163,7 +188,10 @@ export default function PublierOffreForm({ onPublished, onCancel, offre }) {
               tags={form.langues}
               onChange={(v) => set('langues', v)}
               placeholder="Français, Anglais..."
+              suggestions={LANGUES_SUGGESTIONS}
+              listId="langues-suggestions"
             />
+            <span className="field-hint">Choisissez dans la liste ou tapez une langue puis Entrée.</span>
           </div>
         </div>
       </div>
@@ -179,8 +207,15 @@ export default function PublierOffreForm({ onPublished, onCancel, offre }) {
           </div>
           <div className="form-group">
             <label>Pays</label>
-            <input placeholder="ex: Tunisie, France, Canada..."
-              value={form.pays} onChange={(e) => set('pays', e.target.value)} />
+            <input
+              list="pays-suggestions"
+              placeholder="ex: Tunisie, France, Canada..."
+              value={form.pays}
+              onChange={(e) => set('pays', e.target.value)}
+            />
+            <datalist id="pays-suggestions">
+              {COUNTRIES.map((c) => <option key={c} value={c} />)}
+            </datalist>
           </div>
           <div className="form-group">
             <label>Type de contrat</label>

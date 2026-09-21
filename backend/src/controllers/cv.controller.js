@@ -10,7 +10,9 @@ function formatCvResponse(cv) {
 
   const parsed = parseCvDetails(cv.texteExtrait);
   const fileName = cv.urlFichier ? path.basename(cv.urlFichier) : null;
-  const fileUrl = fileName ? `/cv/download/${fileName}` : null;
+  // Les routes CV sont montées sous /api/cv dans server.js (app.use('/api/cv', cvRoutes)),
+  // le lien généré doit donc inclure ce préfixe pour être atteignable.
+  const fileUrl = fileName ? `/api/cv/download/${fileName}` : null;
 
   return {
     id: cv.id,
@@ -18,15 +20,17 @@ function formatCvResponse(cv) {
     skillsExtraites: cv.skillsExtraites || [],
     texteExtrait: cv.texteExtrait || '',
     previewText: parsed.previewText,
-    emailExtrait: parsed.email,
-    telephoneExtrait: parsed.telephone,
+    // Les coordonnées éditées manuellement (via PUT /cv/contact) priment sur
+    // celles extraites automatiquement du texte du CV.
+    emailExtrait: cv.emailOverride || parsed.email,
+    telephoneExtrait: cv.telephoneOverride || parsed.telephone,
     nomFichier: cv.nomFichier || null,
     fileUrl,
     createdAt: cv.createdAt,
   };
 }
 
-// POST /api/cv/upload - le candidat uploade son CV
+// POST /api/cv/upload - le candidat uploade son CV (remplace le précédent s'il existe)
 async function uploadCV(req, res) {
   try {
     if (!req.file) {
@@ -36,8 +40,24 @@ async function uploadCV(req, res) {
     const texteExtrait = await extractTextFromFile(req.file.path, req.file.mimetype);
     const skillsExtraites = extractSkills(texteExtrait);
 
-    const cv = await prisma.cV.create({
-      data: {
+    // Un seul CV par candidat : on supprime l'ancien fichier physique s'il existe,
+    // puis on upsert plutôt que de créer une nouvelle ligne à chaque envoi.
+    const ancien = await prisma.cV.findUnique({ where: { candidatId: req.user.id } });
+    if (ancien?.urlFichier) {
+      fs.unlink(path.resolve(ancien.urlFichier), (err) => {
+        if (err && err.code !== 'ENOENT') console.warn('Impossible de supprimer l\'ancien CV:', err.message);
+      });
+    }
+
+    const cv = await prisma.cV.upsert({
+      where: { candidatId: req.user.id },
+      update: {
+        urlFichier: req.file.path,
+        nomFichier: req.file.originalname,
+        texteExtrait,
+        skillsExtraites,
+      },
+      create: {
         candidatId: req.user.id,
         urlFichier: req.file.path,
         nomFichier: req.file.originalname,
@@ -98,4 +118,28 @@ async function telechargerCV(req, res) {
   }
 }
 
-module.exports = { uploadCV, getMesCV, telechargerCV, formatCvResponse };
+// PUT /api/cv/contact - le candidat corrige manuellement l'email/téléphone
+// extraits automatiquement de son CV (ces valeurs priment ensuite sur l'extraction IA)
+async function updateContact(req, res) {
+  try {
+    const { telephoneExtrait, emailExtrait } = req.body;
+ 
+    const cv = await prisma.cV.update({
+      where: { candidatId: req.user.id },
+      data: {
+        ...(telephoneExtrait !== undefined && { telephoneOverride: telephoneExtrait }),
+        ...(emailExtrait !== undefined && { emailOverride: emailExtrait }),
+      },
+    });
+ 
+    res.json({ message: 'Coordonnées mises à jour', cv: formatCvResponse(cv) });
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ message: 'Aucun CV trouvé pour cet utilisateur' });
+    }
+    console.error(err);
+    res.status(500).json({ message: 'Erreur lors de la mise à jour des coordonnées' });
+  }
+}
+ 
+module.exports = { uploadCV, getMesCV, telechargerCV, updateContact, formatCvResponse };

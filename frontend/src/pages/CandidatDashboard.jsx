@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import CVUpload from '../components/CVUpload';
-import CandidatureList from '../components/CandidatureList';
 import ProfileSection from './ProfileSection';
+import CandidatureList from '../components/CandidatureList';
 
 
 export default function CondidatDashboard() {

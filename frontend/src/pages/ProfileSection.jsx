@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
+import ProfilePhotoUpload from '../components/ProfilePhotoUpload';
 
 const ROLE_LABELS = { CANDIDAT: 'Candidat', RECRUTEUR: 'Recruteur', ADMIN: 'Administrateur' };
 const ROLE_COLORS = { CANDIDAT: '#4361ee', RECRUTEUR: '#764090', ADMIN: '#dc2626' };
@@ -65,9 +66,7 @@ export default function ProfileSection() {
       <div className="profile-card">
 
         <div className="profile-avatar-section">
-          <div className="profile-avatar">
-            {user?.nom?.charAt(0).toUpperCase()}
-          </div>
+          <ProfilePhotoUpload />
           <div>
             <h2 className="profile-name">{user?.nom}</h2>
             <span className="profile-role-badge" style={{ background: ROLE_COLORS[user?.role] + '20', color: ROLE_COLORS[user?.role], border: `1px solid ${ROLE_COLORS[user?.role]}40` }}>

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
 const AuthContext = createContext(null);
@@ -7,7 +6,6 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     api
@@ -32,10 +30,17 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await api.post('/auth/logout');
-      setUser(null);
-      navigate('/login'); // ✅ redirection vers la page de connexion
     } catch (err) {
+      // On loggue l'erreur mais on ne bloque jamais la déconnexion côté client
+      // pour ça : même si l'appel API échoue (cookie déjà expiré, réseau...),
+      // l'utilisateur doit quand même être déconnecté visuellement.
       console.error('Logout failed', err);
+    } finally {
+      setUser(null);
+      // window.location.href (et non navigate()) pour forcer un vrai rechargement
+      // complet de la page : ça vide aussi tout état résiduel ailleurs dans l'app
+      // (dashboard, socket, listes en cache, etc.), pas seulement la route.
+      window.location.href = '/';
     }
   };
 
