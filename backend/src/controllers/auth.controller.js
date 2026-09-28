@@ -24,7 +24,7 @@ function setTokenCookie(res, token) {
 // Inscription classique Email / Mot de passe
 async function register(req, res) {
   try {
-    const { nom, email, motDePasse, role } = req.body;
+    const { nom, email, motDePasse } = req.body;
 
     if (!nom || !email || !motDePasse) {
       return res.status(400).json({ message: 'Tous les champs obligatoires doivent être remplis' });
@@ -40,14 +40,13 @@ async function register(req, res) {
     }
 
     const hashedPassword = await bcrypt.hash(motDePasse, 10);
-    const userRole = role === 'RECRUTEUR' ? 'RECRUTEUR' : 'CANDIDAT';
 
     const user = await prisma.user.create({
       data: {
         nom,
         email,
         motDePasse: hashedPassword,
-        role: userRole,
+        role: 'CANDIDAT',
       },
     });
 

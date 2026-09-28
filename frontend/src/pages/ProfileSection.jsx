@@ -6,7 +6,7 @@ import { useToast } from '../components/Toast';
 import ProfilePhotoUpload from '../components/ProfilePhotoUpload';
 
 const ROLE_LABELS = { CANDIDAT: 'Candidat', RECRUTEUR: 'Recruteur', ADMIN: 'Administrateur' };
-const ROLE_COLORS = { CANDIDAT: '#4361ee', RECRUTEUR: '#764090', ADMIN: '#dc2626' };
+const ROLE_COLORS = { CANDIDAT: '#6e3a91', RECRUTEUR: '#764090', ADMIN: '#dc2626' };
 
 export default function ProfileSection() {
   const { user, setUser, logout } = useAuth();
@@ -105,6 +105,7 @@ export default function ProfileSection() {
                     onChange={(e) => setMotDePasse(e.target.value)}
                     placeholder="Min. 6 caractères"
                     minLength={motDePasse ? 6 : undefined}
+                    autoComplete="new-password"
                   />
                   <button type="button" className="profile-eye-btn" onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? '🙈' : '👁️'}
@@ -119,6 +120,7 @@ export default function ProfileSection() {
                   value={confirmMotDePasse}
                   onChange={(e) => setConfirmMotDePasse(e.target.value)}
                   placeholder="Répétez le mot de passe"
+                  autoComplete="new-password"
                 />
               </div>
             </>

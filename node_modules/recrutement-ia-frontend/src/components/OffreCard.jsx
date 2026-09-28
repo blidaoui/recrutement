@@ -55,8 +55,11 @@ export default function OffreCard({ offre, onPostuler, onPostulerVisiteur, hasAp
           <div className="ocard-title-block">
             <h3 className="ocard-title">{offre.titre}</h3>
             {offre.entreprise && <span className="ocard-company"><ImOffice /> {offre.entreprise}</span>}
-            {offre.recruteur?.nom && !offre.entreprise && (
-              <span className="ocard-company"><GoPersonFill /> {offre.recruteur.nom}</span>
+            {offre.recruteur?.nom && (
+              <span className="ocard-company">
+                <GoPersonFill /> {offre.recruteur.nom}
+                {offre.recruteur.email ? ` • ${offre.recruteur.email}` : ''}
+              </span>
             )}
           </div>
           <span className="ocard-head-right">

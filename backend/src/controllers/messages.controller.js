@@ -6,6 +6,49 @@ const CONV_INCLUDE = {
         messages:  { orderBy: { createdAt: 'desc' }, take: 1 },
 };
 
+async function getUsersForMessaging(req, res) {
+  try {
+    const { search } = req.query;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    const allowedRoles = role === 'CANDIDAT'
+      ? ['RECRUTEUR']
+      : role === 'RECRUTEUR'
+        ? ['CANDIDAT']
+        : ['CANDIDAT', 'RECRUTEUR', 'ADMIN'];
+
+    const where = {
+      id: { not: userId },
+      role: { in: allowedRoles },
+      actif: true,
+      ...(search ? {
+        OR: [
+          { nom: { contains: String(search), mode: 'insensitive' } },
+          { email: { contains: String(search), mode: 'insensitive' } },
+        ],
+      } : {}),
+    };
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { nom: 'asc' },
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        role: true,
+        photoProfil: true,
+      },
+    });
+
+    res.json({ users });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+}
+
 // GET /api/messages/conversations
 async function getConversations(req, res) {
   try {
@@ -137,4 +180,11 @@ async function getUnreadCount(req, res) {
   }
 }
 
-module.exports = { getConversations, createOrGetConversation, getMessages, sendMessage, getUnreadCount };
+module.exports = {
+  getUsersForMessaging,
+  getConversations,
+  createOrGetConversation,
+  getMessages,
+  sendMessage,
+  getUnreadCount,
+};

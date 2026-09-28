@@ -5,6 +5,7 @@ import OffreCard from '../components/OffreCard';
 import SearchableSelect from '../components/Searchableselect';
 import { COUNTRIES } from '../data/countries';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import { RiSearchAi2Line } from "react-icons/ri";
 import { RiUserLocationFill } from "react-icons/ri";
 import { IoReloadOutline } from "react-icons/io5";
@@ -16,7 +17,6 @@ export default function Offres() {
   const [mesCandidatures, setMesCandidatures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState(null);
-  const [notification, setNotification] = useState('');
   const [search, setSearch] = useState('');
   const [filterStatut, setFilterStatut] = useState('toutes');
   const [filterContrat, setFilterContrat] = useState('tous');
@@ -49,6 +49,7 @@ export default function Offres() {
 
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const { showToast, ToastViewport } = useToast();
 
   const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
 
@@ -179,7 +180,6 @@ export default function Offres() {
   // nom/email sur le profil utilisateur, téléphone sur le CV actif.
   const handleSaveInfo = async () => {
     setSavingInfo(true);
-    setNotification('');
     try {
       const resProfile = await api.put('/auth/profile', { nom: editForm.nom, email: editForm.email });
       if (resProfile.data?.user) setUser(resProfile.data.user);
@@ -193,8 +193,9 @@ export default function Offres() {
 
       await chargerMonCv();
       setEditingInfo(false);
+      showToast('success', 'Informations mises à jour avec succès !');
     } catch (err) {
-      setNotification(` ${err.response?.data?.message || 'Erreur lors de la mise à jour de vos informations'}`);
+      showToast('error', err.response?.data?.message || 'Erreur lors de la mise à jour de vos informations');
     } finally {
       setSavingInfo(false);
     }
@@ -202,17 +203,16 @@ export default function Offres() {
 
   const postuler = async (offreId) => {
     setSubmittingId(offreId);
-    setNotification('');
 
     try {
       await api.post('/candidatures', { offreId });
-      setNotification(' Candidature envoyée avec succès !');
+      showToast('success', 'Candidature envoyée avec succès !');
       chargerMesCandidatures();
     } catch (err) {
       if (err.response?.data?.noCv) {
         setTargetOffreId(offreId);
       } else {
-        setNotification(` ${err.response?.data?.message || 'Erreur lors de la candidature'}`);
+        showToast('error', err.response?.data?.message || 'Erreur lors de la candidature');
       }
     } finally {
       setSubmittingId(null);
@@ -224,7 +224,6 @@ export default function Offres() {
     if (!cvFile || !targetOffreId) return;
 
     setUploadingCv(true);
-    setNotification('');
 
     try {
       const formData = new FormData();
@@ -236,13 +235,13 @@ export default function Offres() {
 
       await api.post('/candidatures', { offreId: targetOffreId });
 
-      setNotification('CV analysé par l\'IA et candidature transmise avec succès !');
+      showToast('success', 'CV analysé par l\'IA et candidature transmise avec succès !');
       setTargetOffreId(null);
       setCvFile(null);
       chargerMesCandidatures();
       chargerMonCv();
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de l\'envoi du CV');
+      showToast('error', err.response?.data?.message || 'Erreur lors de l\'envoi du CV');
     } finally {
       setUploadingCv(false);
     }
@@ -265,7 +264,6 @@ export default function Offres() {
     if (!newCvFile) return;
 
     setUploadingNewCv(true);
-    setNotification('');
 
     try {
       const formData = new FormData();
@@ -278,9 +276,9 @@ export default function Offres() {
       await chargerMonCv();
       setNewCvFile(null);
       setReplacingCv(false);
-      setNotification('Votre CV a été mis à jour avec succès !');
+      showToast('success', 'Votre CV a été mis à jour avec succès !');
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors du remplacement du CV');
+      showToast('error', err.response?.data?.message || 'Erreur lors du remplacement du CV');
     } finally {
       setUploadingNewCv(false);
     }
@@ -300,12 +298,7 @@ export default function Offres() {
         </div>
       </div>
 
-      {notification && (
-        <div className="notification-banner">
-          {notification}
-          <button onClick={() => setNotification('')} className="close-banner">✕</button>
-        </div>
-      )}
+      <ToastViewport />
 
       {/* Search & Filter bar */}
       <div className="offres-search-bar">
@@ -473,7 +466,7 @@ export default function Offres() {
                       <span className="apply-cv-name">{monCv.nomFichier || 'Mon CV'}</span>
                       {monCv.fileUrl && (
                         <a
-                          href={`${API_BASE}${monCv.fileUrl}`}
+                          href={`${API_BASE}/api${monCv.fileUrl.startsWith('/api') ? monCv.fileUrl.slice('/api'.length) : monCv.fileUrl}`}
                           target="_blank"
                           rel="noreferrer"
                           className="apply-cv-view-link"
@@ -687,7 +680,12 @@ export default function Offres() {
               <button
                 type="button"
                 className="login-prompt-link"
-                onClick={() => navigate('/register')}
+                onClick={() => {
+                  if (visiteurOffre) {
+                    localStorage.setItem('pendingOffreId', String(visiteurOffre.id));
+                    navigate(`/login?tab=register&redirect=/offres&offreId=${visiteurOffre.id}`);
+                  }
+                }}
               >
                 Inscrivez-vous
               </button>

@@ -11,7 +11,12 @@ export function AuthProvider({ children }) {
     api
       .get('/auth/me')
       .then((res) => setUser(res.data.user))
-      .catch(() => setUser(null))
+      .catch((err) => {
+        if (err.response?.status !== 401) {
+          console.error('Auth check failed:', err);
+        }
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -21,8 +26,8 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const register = async ({ nom, email, motDePasse, role }) => {
-    const res = await api.post('/auth/register', { nom, email, motDePasse, role });
+  const register = async ({ nom, email, motDePasse }) => {
+    const res = await api.post('/auth/register', { nom, email, motDePasse });
     setUser(res.data.user);
     return res.data;
   };

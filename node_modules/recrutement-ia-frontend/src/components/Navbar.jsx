@@ -76,11 +76,13 @@ export default function Navbar() {
 
         {user ? (
           <div className="user-nav">
-            <Link to="/messages" className="nav-messages-btn" onClick={closeMenu} style={{ '--i': 1 }}>
-              <AiOutlineWechatWork />
-              <span className="nav-messages-label">Messages</span>
-              {unread > 0 && <span className="nav-unread-badge">{unread > 9 ? '9+' : unread}</span>}
-            </Link>
+            {user.role !== 'ADMIN' && (
+              <Link to="/messages" className="nav-messages-btn" onClick={closeMenu} style={{ '--i': 1 }}>
+                <AiOutlineWechatWork />
+                <span className="nav-messages-label">Messages</span>
+                {unread > 0 && <span className="nav-unread-badge">{unread > 9 ? '9+' : unread}</span>}
+              </Link>
+            )}
             <Link to="/dashboard" className="nav-btn-dashboard" onClick={closeMenu} style={{ '--i': 2 }}>
               <Avatar user={user} size="sm" />
               Mon espace

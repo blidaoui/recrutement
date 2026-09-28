@@ -173,7 +173,12 @@ export default function CandidatureList({ candidatures, onUpdateStatut }) {
                     )}
                     {selectedCv.fileUrl && (
                       <div className="contact-item full">
-                        <a href={`${API_BASE}${selectedCv.fileUrl}`} target="_blank" rel="noreferrer" className="btn-download-cv">
+                        <a
+                          href={`${API_BASE}/api${selectedCv.fileUrl.startsWith('/api') ? selectedCv.fileUrl.slice('/api'.length) : selectedCv.fileUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-download-cv"
+                        >
                            Télécharger le fichier original du CV
                         </a>
                       </div>
@@ -211,7 +216,7 @@ export default function CandidatureList({ candidatures, onUpdateStatut }) {
   /* ============================== VUE CANDIDAT ============================== */
   return (
     <div className="table-responsive">
-      <table className="candidatures-table">
+      <table className="candidatures-table candidature-list-table">
         <thead>
           <tr>
             <th>Offre</th>

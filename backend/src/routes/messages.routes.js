@@ -1,14 +1,19 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const {
-  getConversations, createOrGetConversation,
-  getMessages, sendMessage, getUnreadCount,
+  getUsersForMessaging,
+  getConversations,
+  createOrGetConversation,
+  getMessages,
+  sendMessage,
+  getUnreadCount,
 } = require('../controllers/messages.controller');
 
 const router = express.Router();
 
 router.use(requireAuth);
 
+router.get('/users', getUsersForMessaging);
 router.get('/unread-count', getUnreadCount);
 router.get('/conversations', getConversations);
 router.post('/conversations', createOrGetConversation);

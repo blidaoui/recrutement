@@ -54,7 +54,7 @@ async function listerOffres(req, res) {
     const offres = await prisma.offre.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        recruteur: { select: { nom: true } },
+        recruteur: { select: { nom: true, email: true } },
         candidatures: { select: { id: true, candidatId: true } },
       },
     });
@@ -71,7 +71,7 @@ async function getOffre(req, res) {
     const offre = await prisma.offre.findUnique({
       where: { id: Number(req.params.id) },
       include: {
-        recruteur: { select: { nom: true } },
+        recruteur: { select: { nom: true, email: true } },
         candidatures: true,
       },
     });

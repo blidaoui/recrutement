@@ -29,6 +29,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('TOUS');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmToggle, setConfirmToggle] = useState(null);
   const [showStatutDetail, setShowStatutDetail] = useState(false);
   const [showTopOffres, setShowTopOffres] = useState(false);
 
@@ -102,6 +103,8 @@ export default function AdminDashboard() {
     }
   };
 
+  const isSuperAdminUser = (user) => user?.email?.toLowerCase() === 'admin@admin.com';
+
   const handleToggle = async (id) => {
     try {
       await api.patch(`/admin/users/${id}/toggle`);
@@ -109,6 +112,12 @@ export default function AdminDashboard() {
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur');
     }
+  };
+
+  const handleToggleConfirm = async () => {
+    if (!confirmToggle) return;
+    await handleToggle(confirmToggle.id);
+    setConfirmToggle(null);
   };
 
   const handleDelete = async (id) => {
@@ -227,8 +236,28 @@ export default function AdminDashboard() {
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={topOffresData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="titre" width={130} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => [v, 'Candidatures']} />
+                <YAxis type="category" dataKey="titre" hide />
+                <Tooltip
+                  cursor={{ fill: '#f1f5f9' }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const data = payload[0].payload;
+                    return (
+                      <div style={{
+                        background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+                        padding: '0.6rem 0.9rem', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        maxWidth: 220
+                      }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1e293b', marginBottom: 4, lineHeight: 1.3 }}>
+                          {data.titre}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#6366f1', fontWeight: 600 }}>
+                          {data.nbCandidatures} candidature{data.nbCandidatures > 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
                 <Bar dataKey="nbCandidatures" fill="#6366f1" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -278,7 +307,8 @@ export default function AdminDashboard() {
         {loadingUsers ? (
           <div className="loading-state">Chargement...</div>
         ) : (
-          <table className="candidatures-table">
+          <div className="table-responsive">
+            <table className="candidatures-table">
             <thead>
               <tr>
                 <th>Utilisateur</th><th>Rôle</th><th>Offres</th><th>CV</th>
@@ -289,34 +319,34 @@ export default function AdminDashboard() {
               {users.map((u) => {
                 const isAdmin = u.role === 'ADMIN';
                 return (
-                  <tr key={u.id} style={{ opacity: u.actif ? 1 : 0.55 }}>
-                    <td>
+                  <tr key={u.id}>
+                    <td data-label="Utilisateur" style={{ opacity: u.actif ? 1 : 0.55 }}>
                       <div className="candidat-info">
                         <span className="candidat-nom">{u.nom}</span>
                         <span className="candidat-email">{u.email}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Rôle" style={{ opacity: u.actif ? 1 : 0.55 }}>
                       <span className="mini-skill-badge" style={{ background: ROLE_COLORS[u.role] + '22', color: ROLE_COLORS[u.role] }}>
                         {ROLE_LABELS[u.role]}
                       </span>
                     </td>
-                    <td>{u._count.offres}</td>
-                    <td>{u._count.cvs}</td>
-                    <td>{u._count.candidatures}</td>
-                    <td>{new Date(u.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                    <td>
+                    <td data-label="Offres" style={{ opacity: u.actif ? 1 : 0.55 }}>{u._count.offres}</td>
+                    <td data-label="CV" style={{ opacity: u.actif ? 1 : 0.55 }}>{u._count.cvs}</td>
+                    <td data-label="Candidatures" style={{ opacity: u.actif ? 1 : 0.55 }}>{u._count.candidatures}</td>
+                    <td data-label="Inscrit le" style={{ opacity: u.actif ? 1 : 0.55 }}>{new Date(u.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td data-label="État">
                       <span className={`statut-pill ${u.actif ? 'statut-acceptee' : 'statut-refusee'}`}>
                         {u.actif ? 'Actif' : 'Désactivé'}
                       </span>
                     </td>
-                    <td>
-                      {isAdmin ? (
-                        <span className="text-muted" style={{ fontSize: '.8rem' }}>—</span>
+                    <td data-label="Actions">
+                      {isSuperAdminUser(u) ? (
+                        <span className="text-muted" style={{ fontSize: '.8rem' }}>Super admin protégé</span>
                       ) : (
                         <div className="action-buttons-group">
                           <button type="button" className={`btn-action ${u.actif ? 'btn-reject' : 'btn-accept'}`}
-                            onClick={() => handleToggle(u.id)}>
+                            onClick={() => setConfirmToggle(u)}>
                             {u.actif ? 'Désactiver' : 'Activer'}
                           </button>
                           <button type="button" className="btn-action btn-reject"
@@ -334,6 +364,7 @@ export default function AdminDashboard() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       </>
@@ -442,6 +473,35 @@ export default function AdminDashboard() {
       )}
 
       {/* Confirm delete modal */}
+      {confirmToggle && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>{confirmToggle.actif ? 'Confirmer la désactivation' : 'Confirmer l’activation'}</h3>
+              <button type="button" className="close-modal-btn" onClick={() => setConfirmToggle(null)}>X</button>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <p>
+                {confirmToggle.actif
+                  ? `Désactiver le compte de ${confirmToggle.nom} (${confirmToggle.email}) ?`
+                  : `Réactiver le compte de ${confirmToggle.nom} (${confirmToggle.email}) ?`}
+              </p>
+              <p className="stats-card-subtitle">
+                {confirmToggle.actif
+                  ? 'L’utilisateur ne pourra plus se connecter tant que le compte restera désactivé.'
+                  : 'Le compte redeviendra accessible pour l’utilisateur.'}
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className={`btn-action ${confirmToggle.actif ? 'btn-reject' : 'btn-accept'}`} onClick={handleToggleConfirm}>
+                {confirmToggle.actif ? 'Confirmer la désactivation' : 'Confirmer l’activation'}
+              </button>
+              <button type="button" className="btn-cancel" onClick={() => setConfirmToggle(null)}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDelete && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: 400 }}>

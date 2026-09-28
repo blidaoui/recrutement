@@ -10,9 +10,9 @@ function formatCvResponse(cv) {
 
   const parsed = parseCvDetails(cv.texteExtrait);
   const fileName = cv.urlFichier ? path.basename(cv.urlFichier) : null;
-  // Les routes CV sont montées sous /api/cv dans server.js (app.use('/api/cv', cvRoutes)),
-  // le lien généré doit donc inclure ce préfixe pour être atteignable.
-  const fileUrl = fileName ? `/api/cv/download/${fileName}` : null;
+  // Le client utilise déjà une base URL /api ; on ne répète pas le préfixe ici pour
+  // éviter d'obtenir des URL du type /api/api/cv/download/... dans le front.
+  const fileUrl = fileName ? `/cv/download/${fileName}` : null;
 
   return {
     id: cv.id,

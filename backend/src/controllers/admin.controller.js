@@ -1,6 +1,10 @@
 const prisma = require('../config/db');
 const bcrypt = require('bcryptjs');
 
+const SUPER_ADMIN_EMAIL = 'admin@admin.com';
+
+const isSuperAdminUser = (user) => user && user.email && user.email.toLowerCase() === SUPER_ADMIN_EMAIL;
+
 async function listerUtilisateurs(req, res) {
   try {
     const { role, search } = req.query;
@@ -86,6 +90,7 @@ async function toggleActif(req, res) {
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+    if (isSuperAdminUser(user)) return res.status(403).json({ message: 'Impossible de modifier le compte super admin' });
     if (user.role === 'ADMIN') return res.status(403).json({ message: 'Impossible de modifier un compte administrateur' });
 
     const updated = await prisma.user.update({ where: { id }, data: { actif: !user.actif } });
@@ -103,6 +108,7 @@ async function supprimerUtilisateur(req, res) {
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+    if (isSuperAdminUser(user)) return res.status(403).json({ message: 'Impossible de supprimer le compte super admin' });
     if (user.role === 'ADMIN') return res.status(403).json({ message: 'Impossible de supprimer un compte administrateur' });
     await prisma.cV.deleteMany({ where: { candidatId: id } });
     const offres = await prisma.offre.findMany({ where: { recruteurId: id }, select: { id: true } });

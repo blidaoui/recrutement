@@ -16,7 +16,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
   const [nom, setNom] = useState('');
-  const [role, setRole] = useState('CANDIDAT');
 
   // Photo de profil choisie à l'inscription (optionnelle)
   const [photoFile, setPhotoFile] = useState(null);
@@ -91,7 +90,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await register({ nom, email, motDePasse, role });
+      await register({ nom, email, motDePasse });
 
       // La photo est optionnelle : si l'upload échoue, on ne bloque pas la création du compte
       if (photoFile) {
@@ -142,7 +141,6 @@ export default function Login() {
       setEmail('');
       setMotDePasse('');
       setNom('');
-      setRole('CANDIDAT');
       setForgotEmail('');
       setForgotSent(false);
       setPhotoFile(null);
@@ -157,7 +155,6 @@ export default function Login() {
       <div className="auth-card">
         <div className="auth-header">
           <h2>Plateforme IA Recrutement</h2>
-          <p>Choisissez votre mode d'accès</p>
         </div>
 
         {/* 3 Choix d'authentification */}
@@ -290,26 +287,6 @@ export default function Login() {
                 />
                 <button type="button" className="profile-eye-btn" onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Type de compte :</label>
-              <div className="role-selector">
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'CANDIDAT' ? 'selected' : ''}`}
-                  onClick={() => setRole('CANDIDAT')}
-                >
-                  Candidat
-                </button>
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'RECRUTEUR' ? 'selected' : ''}`}
-                  onClick={() => setRole('RECRUTEUR')}
-                >
-                   Recruteur
                 </button>
               </div>
             </div>

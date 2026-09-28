@@ -11,7 +11,8 @@ export default function CVUpload({ activeCv, onUploaded }) {
 
   const handleDownload = async (fileUrl, fileName) => {
     try {
-      const res = await api.get(fileUrl, { responseType: 'blob' });
+      const requestUrl = fileUrl.startsWith('/api/') ? fileUrl.replace('/api', '') : fileUrl;
+      const res = await api.get(requestUrl, { responseType: 'blob' });
       const contentType = res.headers['content-type'] || '';
       const ext = contentType.includes('pdf') ? '.pdf' : '.docx';
       const safeName = fileName

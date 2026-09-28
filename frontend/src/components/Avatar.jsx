@@ -13,7 +13,7 @@ function getInitiales(nom) {
 // Couleur de fond stable générée à partir du nom, pour que chaque personne
 // ait toujours la même couleur d'avatar par défaut
 function getCouleur(nom) {
-  const couleurs = ['#4f46e5', '#0ea5e9', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777'];
+  const couleurs = ['#6e3a91', '#0ea5e9', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777'];
   if (!nom) return couleurs[0];
   let hash = 0;
   for (let i = 0; i < nom.length; i++) hash = nom.charCodeAt(i) + ((hash << 5) - hash);

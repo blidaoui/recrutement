@@ -15,11 +15,26 @@ export default function Messagerie() {
   const [input, setInput] = useState('');
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [newConvEmail, setNewConvEmail] = useState('');
   const [showNewConv, setShowNewConv] = useState(false);
   const [newConvError, setNewConvError] = useState('');
+  const [userList, setUserList] = useState([]);
   const bottomRef = useRef();
   const inputRef = useRef();
+
+  const loadUsers = async (search = '') => {
+    try {
+      setLoadingUsers(true);
+      const res = await api.get('/messages/users', { params: search ? { search } : {} });
+      setUserList(res.data.users || []);
+    } catch (err) {
+      console.error(err);
+      setUserList([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   // Load conversations
   const loadConversations = async () => {
@@ -50,6 +65,7 @@ export default function Messagerie() {
 
   useEffect(() => {
     loadConversations();
+    loadUsers();
 
     socket.auth = { token: document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('token='))?.split('=')[1] };
     socket.connect();
@@ -116,14 +132,20 @@ export default function Messagerie() {
     e.preventDefault();
     setNewConvError('');
     try {
-      const body = user.role === 'CANDIDAT'
-        ? { recruteurId: null, email: newConvEmail }
-        : { candidatId: null, email: newConvEmail };
+      const trimmedEmail = newConvEmail.trim();
+      if (!trimmedEmail) {
+        setNewConvError('Veuillez renseigner un email.');
+        return;
+      }
 
-      // find user by email first
-      const searchRes = await api.get(`/admin/users?search=${encodeURIComponent(newConvEmail)}`);
-      const found = searchRes.data.users?.[0];
-      if (!found) { setNewConvError('Aucun utilisateur trouvé avec cet email.'); return; }
+      const searchRes = await api.get('/messages/users', { params: { search: trimmedEmail } });
+      const found = searchRes.data.users?.find((u) => u.email?.toLowerCase() === trimmedEmail.toLowerCase())
+        || searchRes.data.users?.[0];
+
+      if (!found) {
+        setNewConvError('Aucun utilisateur trouvé avec cet email.');
+        return;
+      }
 
       const payload = user.role === 'CANDIDAT'
         ? { recruteurId: found.id }
@@ -139,7 +161,13 @@ export default function Messagerie() {
     }
   };
 
-  const getOther = (conv) => user.role === 'CANDIDAT' ? conv.recruteur : conv.candidat;
+  const getOther = (conv) => {
+    if (user.role === 'CANDIDAT') return conv.recruteur;
+    // ADMIN and RECRUTEUR: show candidat as the other party,
+    // unless the admin IS the candidat (shouldn't happen, but fallback)
+    if (conv.candidatId === user.id) return conv.recruteur;
+    return conv.candidat;
+  };
 
   const formatTime = (date) => {
     const d = new Date(date);
@@ -161,14 +189,49 @@ export default function Messagerie() {
           <form onSubmit={startNewConversation} className="msg-new-conv-form">
             <input
               type="email"
-              placeholder={user.role === 'CANDIDAT' ? 'Email du recruteur...' : 'Email du candidat...'}
+              placeholder={user.role === 'CANDIDAT' ? 'Email du recruteur...' : user.role === 'ADMIN' ? 'Email de l\'utilisateur...' : 'Email du candidat...'}
               value={newConvEmail}
-              onChange={(e) => setNewConvEmail(e.target.value)}
+              onChange={(e) => {
+                setNewConvEmail(e.target.value);
+                if (e.target.value.trim()) {
+                  loadUsers(e.target.value.trim());
+                } else {
+                  loadUsers();
+                }
+              }}
               required
             />
             {newConvError && <span className="msg-new-conv-error">{newConvError}</span>}
             <button type="submit" className="msg-new-conv-submit">Démarrer</button>
           </form>
+        )}
+
+        {showNewConv && (
+          <div className="msg-user-list">
+            {loadingUsers ? (
+              <div className="msg-empty msg-empty--small">Chargement...</div>
+            ) : userList.length === 0 ? (
+              <div className="msg-empty msg-empty--small">Aucun utilisateur trouvé.</div>
+            ) : (
+              userList.slice(0, 6).map((person) => (
+                <button
+                  type="button"
+                  key={person.id}
+                  className="msg-user-item"
+                  onClick={() => {
+                    setNewConvEmail(person.email);
+                    setNewConvError('');
+                  }}
+                >
+                  <Avatar user={person} size="sm" />
+                  <div className="msg-user-item-text">
+                    <span className="msg-user-item-name">{person.nom}</span>
+                    <span className="msg-user-item-email">{person.email}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         )}
 
         <div className="msg-conv-list">

@@ -16,20 +16,21 @@ export default function App() {
   if (loading) return <div className="loading">Chargement...</div>;
 
   return (
-    <>
+    <div className="app-shell">
       <Navbar />
-      <main>
-        <Routes>
-          <Route path="/" element={<Offres />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/offres" element={<Offres />} />
-          <Route path="/dashboard" element={ user?.role === 'ADMIN' ? <AdminDashboard /> : user?.role === 'RECRUTEUR' ? <RecruteurDashboard /> : <CondidatDashboard /> } />
-          <Route path="/profile" element={user ? <Profile /> : <Login />} />
-          <Route path="/messages" element={user ? <Messagerie /> : <Login />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
-
-        </Routes>
+      <main className="app-main">
+        <div className="page-container">
+          <Routes>
+            <Route path="/" element={<Offres />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/offres" element={<Offres />} />
+            <Route path="/dashboard" element={ user?.role === 'ADMIN' ? <AdminDashboard /> : user?.role === 'RECRUTEUR' ? <RecruteurDashboard /> : <CondidatDashboard /> } />
+            <Route path="/profile" element={user ? <Profile /> : <Login />} />
+            <Route path="/messages" element={user && user.role !== 'ADMIN' ? <Messagerie /> : <Login />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
+          </Routes>
+        </div>
       </main>
-    </>
+    </div>
   );
 }
