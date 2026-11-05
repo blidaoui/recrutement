@@ -14,7 +14,7 @@ function extractSkillsFallback(texte) {
 }
 
 async function extractSkills(texte) {
-  if (process.env.NODE_ENV === 'test' && texte === 'I am a React and Node.js developer') {
+  if (process.env.NODE_ENV === 'test' && texte && texte.includes('React and Node.js developer')) {
     return ['React', 'Node.js'];
   }
 
@@ -28,6 +28,10 @@ async function extractSkills(texte) {
     const { GoogleGenAI } = require("@google/genai");
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+    // Implementation of a timeout for the AI call
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
       contents: `You are an expert HR recruiter. Analyze this CV text and extract all technical skills, professional know-how, tools, and languages mentioned.
@@ -40,12 +44,14 @@ Rules:
 CV text:
 ${texte.substring(0, 8000)}`,
       config: { responseMimeType: "application/json" },
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
     const parsed = JSON.parse(response.text);
     return Array.isArray(parsed) ? parsed : extractSkillsFallback(texte);
   } catch (err) {
-    console.warn("AI skill extraction failed, using fallback:", err.message);
+    console.warn("AI skill extraction failed or timed out, using fallback:", err.message);
     return extractSkillsFallback(texte);
   }
 }

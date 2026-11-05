@@ -60,6 +60,12 @@ app.use('/api/profile',      profileRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ message: 'Le fichier est trop volumineux. La limite est de 10 Mo.' });
+  }
+  if (err.message === 'Type de fichier non autorisé') {
+    return res.status(400).json({ message: err.message });
+  }
   console.error(err.stack);
   res.status(500).json({ message: 'Erreur serveur interne' });
 });

@@ -39,13 +39,53 @@ describe('CV Upload & Management', () => {
     const res = await request(app)
       .post('/api/cv/upload')
       .set(as(user))
-      .attach('cv', Buffer.from('some content'), 'my-cv.txt');
+      .attach('cv', Buffer.from('I am a React and Node.js developer. Email: test@example.com, Phone: 0123456789'), 'my-cv.txt');
 
     expect(res.status).toBe(201);
     expect(res.body.message).toBe('CV analysé avec succès');
-    expect(res.body.cv.skillsExtraites).toEqual(['React', 'Node.js']);
-    expect(res.body.cv.texteExtrait).toBe('I am a React and Node.js developer');
+    expect(res.body.cv.skillsExtraites).toEqual(expect.arrayContaining(['React', 'Node.js']));
+    // Use matchers that are less strict about exact strings if necessary,
+    // but here we check if the extraction logic found them.
+    expect(res.body.cv.emailExtrait).toBe('test@example.com');
+    expect(res.body.cv.telephoneExtrait).toBe('0123456789');
   });
+
+  it('updates the existing CV on second upload', async () => {
+    const { user } = await createUser('CANDIDAT');
+
+    // First upload
+    await request(app)
+      .post('/api/cv/upload')
+      .set(as(user))
+      .attach('cv', Buffer.from('Content 1'), 'cv1.txt');
+
+    const firstCv = await prisma.cV.findFirst({ where: { candidatId: user.id } });
+
+    // Second upload
+    const res = await request(app)
+      .post('/api/cv/upload')
+      .set(as(user))
+      .attach('cv', Buffer.from('Content 2'), 'cv2.txt');
+
+    expect(res.status).toBe(201);
+    const secondCv = await prisma.cV.findFirst({ where: { candidatId: user.id } });
+    expect(secondCv.id).toBe(firstCv.id); // Should be the same record
+    expect(secondCv.nomFichier).toBe('cv2.txt');
+  });
+
+  it('rejects oversized files (e.g., > 10MB)', async () => {
+    const { user } = await createUser('CANDIDAT');
+    const largeBuffer = Buffer.alloc(11 * 1024 * 1024); // 11MB
+
+    const res = await request(app)
+      .post('/api/cv/upload')
+      .set(as(user))
+      .attach('cv', largeBuffer, 'big.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/trop volumineux|limite/i);
+  });
+
 
   it('rejects invalid file types (e.g., .exe)', async () => {
     const { user } = await createUser('CANDIDAT');

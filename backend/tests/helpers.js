@@ -32,7 +32,13 @@ export async function createUser(role = 'CANDIDAT', overrides = {}) {
 }
 
 export function authCookie(user) {
-  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  // Mocks Google OAuth / Login by generating a JWT directly.
+  // This bypasses the need to automate the Google Login page in tests.
+  const token = jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
   return `token=${token}`;
 }
 

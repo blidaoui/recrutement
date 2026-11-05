@@ -7,7 +7,9 @@ const mammoth = require('mammoth');
  */
 async function extractTextFromFile(filePath, mimeType) {
   if (process.env.NODE_ENV === 'test' && filePath.endsWith('.txt')) {
-    return 'I am a React and Node.js developer';
+    // In tests, we return the content of the file instead of a hardcoded string
+    // to allow testing different extraction scenarios.
+    return fs.readFileSync(filePath, 'utf8');
   }
 
   if (mimeType === 'application/pdf') {

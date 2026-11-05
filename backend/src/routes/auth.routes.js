@@ -1,5 +1,6 @@
 const express = require('express');
 const passport = require('passport');
+const rateLimit = require('express-rate-limit');
 const {
   register,
   login,
@@ -15,13 +16,22 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Rate limiting for auth endpoints to prevent brute-force and spam
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs
+  message: { message: 'Trop de tentatives. Veuillez réessayer plus tard.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Authentification classique par Email / Mot de passe
-router.post('/register', register);
-router.post('/login', login);
+router.post('/register', authLimiter, register);
+router.post('/login', authLimiter, login);
 
 // Mot de passe oublié
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:token', resetPassword);
+router.post('/forgot-password', authLimiter, forgotPassword);
+router.post('/reset-password/:token', authLimiter, resetPassword);
 
 // Authentification Google OAuth 2.0
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' }));
