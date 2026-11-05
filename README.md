@@ -65,6 +65,15 @@ npm run dev
 
 Le serveur démarre sur `http://localhost:5000`.
 
+#### Tests
+
+Pour lancer la suite de tests automatisés (Vitest) :
+```bash
+cd backend
+npm test
+```
+La suite couvre : l'authentification, la gestion des offres, le matching IA, l'upload de CV, les statistiques et la messagerie temps réel (Socket.io).
+
 ### 3. Frontend
 
 ```bash
@@ -136,7 +145,7 @@ VITE_API_URL=http://localhost:5000
 
 L'extraction suit une logique en deux niveaux :
 
-1. **Gemini AI** (si `GEMINI_API_KEY` est défini) — le modèle `gemini-2.5-flash` analyse le texte brut du CV et retourne directement un tableau JSON de compétences normalisées, sans être limité à un référentiel prédéfini.
+1. **Gemini AI** (si `GEMINI_API_KEY` est défini) — le modèle `gemini-1.5-flash` analyse le texte brut du CV et retourne directement un tableau JSON de compétences normalisées, sans être limité à un référentiel prédéfini.
 2. **Fallback référentiel** (si la clé est absente ou si l'appel Gemini échoue) — comparaison du texte au référentiel `skillsReference.js` (150+ compétences sur 13 domaines) avec gestion des synonymes et vérification de frontière de mot pour éviter les faux positifs.
 
 Le client Gemini est instancié de façon paresseuse (uniquement au moment de l'appel) pour ne pas bloquer le démarrage du serveur si la clé est manquante.
