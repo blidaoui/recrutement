@@ -36,6 +36,10 @@ const routes = [
     path: "/api/candidatures/999999/statut",
     allowed: ["RECRUTEUR"],
   },
+  { method: 'get',    path: '/api/admin/users',            allowed: ['ADMIN'] },
+{ method: 'post',   path: '/api/admin/users',            allowed: ['ADMIN'] },
+{ method: 'patch',  path: '/api/admin/users/999999/toggle', allowed: ['ADMIN'] },
+{ method: 'delete', path: '/api/admin/users/999999',     allowed: ['ADMIN'] },
 ];
 
 for (const { method, path, allowed } of routes) {
