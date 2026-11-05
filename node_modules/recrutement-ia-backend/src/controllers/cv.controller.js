@@ -4,14 +4,15 @@ const prisma = require('../config/db');
 const { extractTextFromFile } = require('../services/ia/extractText');
 const { extractSkills } = require('../services/ia/extractSkills');
 const { parseCvDetails } = require('../services/ia/parseCvDetails');
+const { isValidEmail } = require('../utils/emailValidation');
 
 function formatCvResponse(cv) {
   if (!cv) return null;
 
   const parsed = parseCvDetails(cv.texteExtrait);
   const fileName = cv.urlFichier ? path.basename(cv.urlFichier) : null;
-  // Le client utilise déjà une base URL /api ; on ne répète pas le préfixe ici pour
-  // éviter d'obtenir des URL du type /api/api/cv/download/... dans le front.
+  // Prefix is /cv/download/ — the axios baseURL already includes /api,
+  // so the final URL becomes /api/cv/download/:filename as expected.
   const fileUrl = fileName ? `/cv/download/${fileName}` : null;
 
   return {
@@ -24,6 +25,9 @@ function formatCvResponse(cv) {
     // celles extraites automatiquement du texte du CV.
     emailExtrait: cv.emailOverride || parsed.email,
     telephoneExtrait: cv.telephoneOverride || parsed.telephone,
+    emailDetecte: parsed.email,
+    telephoneDetecte: parsed.telephone,
+    hasOverride: Boolean(cv.emailOverride || cv.telephoneOverride),
     nomFichier: cv.nomFichier || null,
     fileUrl,
     createdAt: cv.createdAt,
@@ -38,10 +42,9 @@ async function uploadCV(req, res) {
     }
 
     const texteExtrait = await extractTextFromFile(req.file.path, req.file.mimetype);
-    const skillsExtraites = extractSkills(texteExtrait);
+    const skillsExtraites = await extractSkills(texteExtrait);
 
-    // Un seul CV par candidat : on supprime l'ancien fichier physique s'il existe,
-    // puis on upsert plutôt que de créer une nouvelle ligne à chaque envoi.
+    // One CV per candidate: delete the old file before upserting
     const ancien = await prisma.cV.findUnique({ where: { candidatId: req.user.id } });
     if (ancien?.urlFichier) {
       fs.unlink(path.resolve(ancien.urlFichier), (err) => {
@@ -49,6 +52,7 @@ async function uploadCV(req, res) {
       });
     }
 
+    // Réinitialisation des surcharges manuelles lors du dépôt d'un nouveau CV
     const cv = await prisma.cV.upsert({
       where: { candidatId: req.user.id },
       update: {
@@ -56,6 +60,8 @@ async function uploadCV(req, res) {
         nomFichier: req.file.originalname,
         texteExtrait,
         skillsExtraites,
+        emailOverride: null,
+        telephoneOverride: null,
       },
       create: {
         candidatId: req.user.id,
@@ -63,6 +69,8 @@ async function uploadCV(req, res) {
         nomFichier: req.file.originalname,
         texteExtrait,
         skillsExtraites,
+        emailOverride: null,
+        telephoneOverride: null,
       },
     });
 
@@ -118,17 +126,42 @@ async function telechargerCV(req, res) {
   }
 }
 
-// PUT /api/cv/contact - le candidat corrige manuellement l'email/téléphone
-// extraits automatiquement de son CV (ces valeurs priment ensuite sur l'extraction IA)
+// PUT /api/cv/contact — candidate manually corrects email/phone extracted from their CV,
+// or resets them to the automatically extracted values from the CV.
 async function updateContact(req, res) {
   try {
-    const { telephoneExtrait, emailExtrait } = req.body;
+    const { telephoneExtrait, emailExtrait, resetToCv } = req.body;
+
+    if (resetToCv) {
+      const cv = await prisma.cV.update({
+        where: { candidatId: req.user.id },
+        data: {
+          telephoneOverride: null,
+          emailOverride: null,
+        },
+      });
+      return res.json({ message: 'Coordonnées réinitialisées depuis le CV', cv: formatCvResponse(cv) });
+    }
+
+    const telephone = telephoneExtrait == null ? '' : String(telephoneExtrait).trim();
+    const email = emailExtrait == null ? '' : String(emailExtrait).trim();
+
+    if (telephone) {
+      const digitsOnly = telephone.replace(/\D/g, '');
+      if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+        return res.status(400).json({ message: 'Le téléphone doit contenir entre 8 et 15 chiffres.' });
+      }
+    }
+
+    if (emailExtrait !== undefined && email && !isValidEmail(email)) {
+      return res.status(400).json({ message: 'Adresse email invalide. Exemple : sarah.benali@talent.tn' });
+    }
  
     const cv = await prisma.cV.update({
       where: { candidatId: req.user.id },
       data: {
-        ...(telephoneExtrait !== undefined && { telephoneOverride: telephoneExtrait }),
-        ...(emailExtrait !== undefined && { emailOverride: emailExtrait }),
+        ...(telephoneExtrait !== undefined && { telephoneOverride: telephone || null }),
+        ...(emailExtrait !== undefined && { emailOverride: email || null }),
       },
     });
  

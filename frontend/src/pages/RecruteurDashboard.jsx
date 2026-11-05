@@ -35,11 +35,8 @@ export default function RecruteurDashboard() {
 
   const chargerOffres = () => {
     api.get('/offres').then((res) => {
-      const toutesLesOffres = res.data.offres || [];
-      // '/offres' est l'endpoint public partagé avec la page Offres (visible par tous les rôles).
-      // Ici, sur le tableau de bord recruteur, on ne garde que les offres du recruteur connecté.
-      const mesOffres = toutesLesOffres.filter((o) => o.recruteurId === user?.id);
-      setOffres(mesOffres);
+      const toutes = res.data.offres || [];
+      setOffres(toutes.filter((o) => o.recruteurId === user?.id));
     });
   };
 
@@ -109,7 +106,6 @@ export default function RecruteurDashboard() {
     <div className="page-dashboard">
       <div className="dashboard-header">
         <h2>Tableau de bord</h2>
-        <p>Bonjour {user?.nom}, voici l'état de votre activité.</p>
       </div>
 
       <div className="auth-tabs" style={{ marginBottom: '1.5rem' }}>

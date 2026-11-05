@@ -53,12 +53,11 @@ export default function OffreCard({ offre, onPostuler, onPostulerVisiteur, hasAp
       <div className="ocard-body">
         <div className="ocard-head">
           <div className="ocard-title-block">
-            <h3 className="ocard-title">{offre.titre}</h3>
+            <h3 className="ocard-title" title={offre.titre}>{offre.titre}</h3>
             {offre.entreprise && <span className="ocard-company"><ImOffice /> {offre.entreprise}</span>}
-            {offre.recruteur?.nom && (
+            {offre.recruteur?.nom && !offre.entreprise && (
               <span className="ocard-company">
-                <GoPersonFill /> {offre.recruteur.nom}
-                {offre.recruteur.email ? ` • ${offre.recruteur.email}` : ''}
+                <GoPersonFill /> {offre.recruteur.nom} {offre.recruteur.email ? `- ${offre.recruteur.email}` : ''}
               </span>
             )}
           </div>
@@ -96,7 +95,7 @@ export default function OffreCard({ offre, onPostuler, onPostulerVisiteur, hasAp
         </div>
 
         <div className="ocard-desc-wrap">
-          <p className="ocard-desc">
+          <p className={`ocard-desc ${expanded ? 'ocard-desc--expanded' : ''}`}>
             {expanded || !isLong ? desc : `${desc.substring(0, MAX)}…`}
           </p>
           {isLong && (

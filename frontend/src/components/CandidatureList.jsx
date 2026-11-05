@@ -16,11 +16,10 @@ export default function CandidatureList({ candidatures, onUpdateStatut }) {
   const [selectedCv, setSelectedCv] = useState(null);
   const [selectedCandidature, setSelectedCandidature] = useState(null);
 
-  // Sans onUpdateStatut, on est forcément sur l'espace CANDIDAT (ses propres
-  // candidatures) : il n'y a alors rien à "gérer", juste à consulter où il en est.
-  // Avec onUpdateStatut, on est sur l'espace RECRUTEUR (candidatures reçues sur
-  // une de ses offres) : on affiche le profil du candidat + les actions.
-  const isRecruteurView = !!onUpdateStatut;
+// CandidatureList renders differently based on context:
+// - With onUpdateStatut: recruiter view (received applications with actions)
+// - Without onUpdateStatut: candidate view (own applications, read-only)
+const isRecruteurView = !!onUpdateStatut;
 
   if (!candidatures || candidatures.length === 0) {
     return (

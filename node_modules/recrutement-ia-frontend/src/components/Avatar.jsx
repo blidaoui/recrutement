@@ -1,5 +1,3 @@
-// Construit l'URL absolue d'une photo stockée en chemin relatif (/uploads/photos/xxx.jpg)
-// ⚠️ Adapte VITE_API_URL au nom réel de ta variable d'env / à la base URL de ton axios instance
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function getInitiales(nom) {
@@ -10,8 +8,7 @@ function getInitiales(nom) {
   return (first + last).toUpperCase();
 }
 
-// Couleur de fond stable générée à partir du nom, pour que chaque personne
-// ait toujours la même couleur d'avatar par défaut
+// Deterministic color from name hash — same person always gets the same avatar color
 function getCouleur(nom) {
   const couleurs = ['#6e3a91', '#0ea5e9', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777'];
   if (!nom) return couleurs[0];
@@ -21,7 +18,9 @@ function getCouleur(nom) {
 }
 
 /**
- * <Avatar user={{ nom, photoProfil }} size="sm" | "md" | "lg" />
+ * Avatar component — shows profile photo or initials fallback.
+ * @param {{ nom: string, photoProfil?: string }} user
+ * @param {'sm'|'md'|'lg'} size
  */
 export default function Avatar({ user, size = 'md', className = '' }) {
   const photoUrl = user?.photoProfil

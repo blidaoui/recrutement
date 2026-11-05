@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api/axios';
 
 export default function CVUpload({ activeCv, onUploaded }) {
@@ -8,6 +8,23 @@ export default function CVUpload({ activeCv, onUploaded }) {
   const [succes, setSucces] = useState('');
   const [showUploadForm, setShowUploadForm] = useState(!activeCv);
   const [showFullText, setShowFullText] = useState(false);
+
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editEmail, setEditEmail] = useState(activeCv?.emailExtrait || '');
+  const [editPhone, setEditPhone] = useState(activeCv?.telephoneExtrait || '');
+  const [savingContact, setSavingContact] = useState(false);
+  const [contactError, setContactError] = useState(null);
+  const [contactSuccess, setContactSuccess] = useState('');
+
+  // Auto-reset overrides on mount so detected CV values always show immediately
+  useEffect(() => {
+    if (activeCv?.hasOverride) {
+      api.put('/cv/contact', { resetToCv: true })
+        .then((res) => onUploaded?.(res.data.cv))
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDownload = async (fileUrl, fileName) => {
     try {
@@ -49,11 +66,52 @@ export default function CVUpload({ activeCv, onUploaded }) {
       setSucces('CV analysé et enregistré avec succès !');
       setFichier(null);
       setShowUploadForm(false);
+      setIsEditingContact(false);
       onUploaded?.(res.data.cv);
     } catch (err) {
       setErreur(err.response?.data?.message || 'Erreur lors de l\'upload');
     } finally {
       setChargement(false);
+    }
+  };
+
+  const handleSaveContact = async (e) => {
+    e.preventDefault();
+    setSavingContact(true);
+    setContactError(null);
+    setContactSuccess('');
+
+    try {
+      const res = await api.put('/cv/contact', {
+        emailExtrait: editEmail,
+        telephoneExtrait: editPhone,
+      });
+      setContactSuccess('Coordonnées mises à jour avec succès !');
+      setIsEditingContact(false);
+      onUploaded?.(res.data.cv);
+    } catch (err) {
+      setContactError(err.response?.data?.message || 'Erreur lors de la mise à jour des coordonnées');
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const handleResetContact = async () => {
+    setSavingContact(true);
+    setContactError(null);
+    setContactSuccess('');
+
+    try {
+      const res = await api.put('/cv/contact', { resetToCv: true });
+      setContactSuccess('Coordonnées réinitialisées avec succès selon le CV !');
+      setIsEditingContact(false);
+      setEditEmail(res.data.cv?.emailExtrait || '');
+      setEditPhone(res.data.cv?.telephoneExtrait || '');
+      onUploaded?.(res.data.cv);
+    } catch (err) {
+      setContactError(err.response?.data?.message || 'Erreur lors de la réinitialisation');
+    } finally {
+      setSavingContact(false);
     }
   };
 
@@ -85,28 +143,111 @@ export default function CVUpload({ activeCv, onUploaded }) {
 
           {/* Informations de contact extraites du CV */}
           <div className="cv-contact-details">
-            <h5 className="details-section-title"> Coordonnées extraites du CV</h5>
-            <div className="contact-grid">
-              <div className="contact-item">
-                <span className="contact-label"> Email détecté :</span>
-                <span className="contact-value">{activeCv.emailExtrait || 'Non spécifié'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h5 className="details-section-title" style={{ margin: 0 }}>
+                 Coordonnées extraites du CV
+                {activeCv.hasOverride && (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#764090', marginLeft: '0.6rem', background: '#f3e8ff', padding: '2px 8px', borderRadius: '12px' }}>
+                    Modifiées manuellement
+                  </span>
+                )}
+              </h5>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  style={{ fontSize: '0.82rem', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 500 }}
+                  onClick={() => {
+                    setIsEditingContact(!isEditingContact);
+                    setEditEmail(activeCv.emailExtrait || '');
+                    setEditPhone(activeCv.telephoneExtrait || '');
+                    setContactError(null);
+                    setContactSuccess('');
+                  }}
+                >
+                  {isEditingContact ? 'Annuler' : 'Modifier'}
+                </button>
               </div>
-              <div className="contact-item">
-                <span className="contact-label"> Téléphone :</span>
-                <span className="contact-value">{activeCv.telephoneExtrait || 'Non détecté'}</span>
-              </div>
-              {activeCv.fileUrl && (
-                <div className="contact-item full">
-                  <button
-                    type="button"
-                    className="btn-download-cv"
-                    onClick={() => handleDownload(activeCv.fileUrl, activeCv.nomFichier)}
-                  >
-                     Télécharger le fichier original
-                  </button>
-                </div>
-              )}
             </div>
+
+            {contactSuccess && (
+              <div style={{ color: '#16a34a', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
+                {contactSuccess}
+              </div>
+            )}
+            {contactError && (
+              <div style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
+                {contactError}
+              </div>
+            )}
+
+            {isEditingContact ? (
+              <form onSubmit={handleSaveContact} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '0.4rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                  <div className="contact-item">
+                    <label className="contact-label">Email :</label>
+                    <input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="votre.email@exemple.com"
+                      style={{ padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                      required
+                    />
+                  </div>
+                  <div className="contact-item">
+                    <label className="contact-label">Téléphone :</label>
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="+216 99 985 908"
+                      style={{ padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
+                  <button
+                    type="submit"
+                    disabled={savingContact}
+                    style={{ padding: '0.45rem 1rem', borderRadius: '6px', background: '#764090', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                  >
+                    {savingContact ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                  {activeCv.hasOverride && (
+                    <button
+                      type="button"
+                      disabled={savingContact}
+                      onClick={handleResetContact}
+                      style={{ padding: '0.45rem 1rem', borderRadius: '6px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      Restaurer les valeurs du CV
+                    </button>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div className="contact-grid">
+                <div className="contact-item">
+                  <span className="contact-label"> Email détecté :</span>
+                  <span className="contact-value">{activeCv.emailExtrait || 'Non spécifié'}</span>
+                </div>
+                <div className="contact-item">
+                  <span className="contact-label"> Téléphone :</span>
+                  <span className="contact-value">{activeCv.telephoneExtrait || 'Non détecté'}</span>
+                </div>
+                {activeCv.fileUrl && (
+                  <div className="contact-item full">
+                    <button
+                      type="button"
+                      className="btn-download-cv"
+                      onClick={() => handleDownload(activeCv.fileUrl, activeCv.nomFichier)}
+                    >
+                       Télécharger le fichier original
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Compétences extraites par l'IA */}

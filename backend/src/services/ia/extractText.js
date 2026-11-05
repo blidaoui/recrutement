@@ -3,10 +3,7 @@ const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 
 /**
- * Extrait le texte brut d'un fichier CV (PDF ou DOCX).
- * @param {string} filePath - chemin du fichier sur le disque
- * @param {string} mimeType - type MIME du fichier uploadé
- * @returns {Promise<string>} texte brut extrait
+ * Extracts raw text from a CV file (PDF or DOCX).
  */
 async function extractTextFromFile(filePath, mimeType) {
   if (mimeType === 'application/pdf') {

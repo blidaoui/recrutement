@@ -88,7 +88,14 @@ export default function ProfileSection() {
 
           <div className="form-group">
             <label>Adresse email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              type="email"
+              pattern="[^ @]+@[^ @]+[.][^ @]+"
+              title="Format attendu : sarah.benali@talent.tn"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
 
           {!isGoogleOnly && (

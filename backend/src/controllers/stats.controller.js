@@ -12,8 +12,8 @@ async function getStats(req, res) {
       },
     });
 
-    const totalOffres = offres.length;
-    const offresOuvertes = offres.length;
+    const totalOffres      = offres.length;
+    const offresOuvertes   = offres.filter((o) => o.statut === 'ouverte').length;
     const allCandidatures = offres.flatMap((o) => o.candidatures);
     const totalCandidatures = allCandidatures.length;
     const profilsHautScore = allCandidatures.filter((c) => c.scoreMatching >= 70).length;

@@ -1,5 +1,7 @@
 const prisma = require('../config/db');
 const bcrypt = require('bcryptjs');
+const deleteUserWithRelations = require('../utils/deleteUserWithRelations');
+const { isValidEmail } = require('../utils/emailValidation');
 
 const SUPER_ADMIN_EMAIL = 'admin@admin.com';
 
@@ -36,9 +38,14 @@ async function listerUtilisateurs(req, res) {
 async function creerUtilisateur(req, res) {
   try {
     const { nom, email, motDePasse, role } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
 
-    if (!nom || !email || !motDePasse) {
+    if (!nom || !normalizedEmail || !motDePasse) {
       return res.status(400).json({ message: 'Le nom, l\'email et le mot de passe sont obligatoires' });
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Adresse email invalide. Exemple : sarah.benali@talent.tn' });
     }
 
     if (motDePasse.length < 6) {
@@ -48,7 +55,7 @@ async function creerUtilisateur(req, res) {
     const rolesValides = ['CANDIDAT', 'RECRUTEUR', 'ADMIN'];
     const userRole = rolesValides.includes(role) ? role : 'CANDIDAT';
 
-    const existingUser = await prisma.user.findUnique({ where: { email: email.trim() } });
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ message: 'Un compte avec cet email existe déjà' });
     }
@@ -58,7 +65,7 @@ async function creerUtilisateur(req, res) {
     const user = await prisma.user.create({
       data: {
         nom: nom.trim(),
-        email: email.trim(),
+        email: normalizedEmail,
         motDePasse: hashedPassword,
         role: userRole,
       },
@@ -110,13 +117,7 @@ async function supprimerUtilisateur(req, res) {
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
     if (isSuperAdminUser(user)) return res.status(403).json({ message: 'Impossible de supprimer le compte super admin' });
     if (user.role === 'ADMIN') return res.status(403).json({ message: 'Impossible de supprimer un compte administrateur' });
-    await prisma.cV.deleteMany({ where: { candidatId: id } });
-    const offres = await prisma.offre.findMany({ where: { recruteurId: id }, select: { id: true } });
-    for (const o of offres) {
-      await prisma.candidature.deleteMany({ where: { offreId: o.id } });
-    }
-    await prisma.offre.deleteMany({ where: { recruteurId: id } });
-    await prisma.user.delete({ where: { id } });
+    await deleteUserWithRelations(prisma, id);
 
     res.json({ message: 'Utilisateur supprimé' });
   } catch (err) {

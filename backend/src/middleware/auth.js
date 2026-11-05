@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/db');
 
-// Vérifie le JWT envoyé dans le cookie httpOnly ou le header Authorization
+/**
+ * Reads JWT from httpOnly cookie or Authorization: Bearer header.
+ * Attaches the full user object to req.user on success.
+ */
 async function requireAuth(req, res, next) {
   try {
     const token =
@@ -32,7 +35,9 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// Restreint l'accès à certains rôles (ex: requireRole('RECRUTEUR'))
+/**
+ * Role guard — usage: requireRole('RECRUTEUR') or requireRole('RECRUTEUR', 'ADMIN')
+ */
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {

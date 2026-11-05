@@ -138,26 +138,87 @@ async function getMessages(req, res) {
   }
 }
 
-// POST /api/messages/conversations/:id  { contenu }
+// POST /api/messages/conversations/:id  { contenu }  or multipart file upload
 async function sendMessage(req, res) {
   try {
-    const convId  = Number(req.params.id);
-    const userId  = req.user.id;
-    const { contenu } = req.body;
-
-    if (!contenu?.trim()) return res.status(400).json({ message: 'Message vide' });
+    const convId = Number(req.params.id);
+    const userId = req.user.id;
+    const rawContenu = req.body?.contenu ?? '';
+    const trimmed = typeof rawContenu === 'string' ? rawContenu.trim() : '';
 
     const conv = await prisma.conversation.findUnique({ where: { id: convId } });
     if (!conv) return res.status(404).json({ message: 'Conversation introuvable' });
     if (conv.candidatId !== userId && conv.recruteurId !== userId)
       return res.status(403).json({ message: 'Accès refusé' });
 
+    const hasAttachment = Boolean(req.file);
+    const attachmentType = req.body?.attachmentType || (req.file ? (req.file.mimetype.startsWith('image/') ? 'IMAGE' : 'FILE') : 'TEXT');
+    const attachmentUrl = req.file ? `/uploads/messages/${req.file.filename}` : null;
+    const attachmentName = req.file ? req.file.originalname : null;
+    const mimeType = req.file ? req.file.mimetype : null;
+
+    if (!hasAttachment && !trimmed) {
+      return res.status(400).json({ message: 'Message vide' });
+    }
+
     const message = await prisma.message.create({
-      data: { conversationId: convId, senderId: userId, contenu: contenu.trim() },
+      data: {
+        conversationId: convId,
+        senderId: userId,
+        contenu: trimmed || (hasAttachment ? 'Pièce jointe' : ''),
+        attachmentType: hasAttachment ? attachmentType : null,
+        attachmentUrl,
+        attachmentName,
+        mimeType,
+      },
       include: { sender: { select: { id: true, nom: true } } },
     });
 
     res.status(201).json({ message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+}
+
+// PATCH /api/messages/messages/:id — sender edits their own message text
+async function editMessage(req, res) {
+  try {
+    const msgId = Number(req.params.id);
+    const { contenu } = req.body;
+    const trimmed = typeof contenu === 'string' ? contenu.trim() : '';
+
+    if (!trimmed) return res.status(400).json({ message: 'Le message ne peut pas être vide' });
+
+    const msg = await prisma.message.findUnique({ where: { id: msgId } });
+    if (!msg) return res.status(404).json({ message: 'Message introuvable' });
+    if (msg.senderId !== req.user.id) return res.status(403).json({ message: 'Accès refusé' });
+
+    const updated = await prisma.message.update({
+      where: { id: msgId },
+      data: { contenu: trimmed, edited: true },
+      include: { sender: { select: { id: true, nom: true } } },
+    });
+
+    res.json({ message: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+}
+
+// DELETE /api/messages/messages/:id — sender deletes their own message
+async function deleteMessage(req, res) {
+  try {
+    const msgId = Number(req.params.id);
+
+    const msg = await prisma.message.findUnique({ where: { id: msgId } });
+    if (!msg) return res.status(404).json({ message: 'Message introuvable' });
+    if (msg.senderId !== req.user.id) return res.status(403).json({ message: 'Accès refusé' });
+
+    await prisma.message.delete({ where: { id: msgId } });
+
+    res.json({ id: msgId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur' });
@@ -186,5 +247,7 @@ module.exports = {
   createOrGetConversation,
   getMessages,
   sendMessage,
+  editMessage,
+  deleteMessage,
   getUnreadCount,
 };

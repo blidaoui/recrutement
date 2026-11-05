@@ -5,7 +5,7 @@ import Avatar from './Avatar';
 import { MdOutlineCameraAlt, MdOutlineDelete } from 'react-icons/md';
 
 export default function ProfilePhotoUpload() {
-  const { user, setUser } = useAuth(); // ⚠️ adapte `setUser` si ton AuthContext expose une autre fonction
+  const { user, setUser } = useAuth();
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +28,7 @@ export default function ProfilePhotoUpload() {
       return;
     }
 
-    // Aperçu immédiat pendant l'upload
+    // Show local preview immediately while uploading
     const localPreview = URL.createObjectURL(file);
     setPreview(localPreview);
     setUploading(true);

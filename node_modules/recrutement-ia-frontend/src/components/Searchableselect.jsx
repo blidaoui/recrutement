@@ -1,27 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
+import { normalizeText } from '../utils/searchMatcher';
 
 /**
- * Select recherchable : se comporte comme un <select> mais permet
- * de taper pour filtrer les options, ou de cliquer pour en choisir une.
+ * Searchable select — behaves like a <select> but allows typing to filter options.
  *
- * Props:
- *  - options: string[]
- *  - value: string (valeur sélectionnée, '' = aucune)
- *  - onChange: (value: string) => void
- *  - placeholder: string
- *  - icon: ReactNode (optionnel, affiché à gauche du champ)
+ * Props: options, value, onChange, placeholder, icon (optional)
  */
 export default function SearchableSelect({ options, value, onChange, placeholder = 'Sélectionner...', icon }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value || '');
   const wrapperRef = useRef(null);
 
-  // garde le champ affiché synchronisé si la valeur change depuis l'extérieur
+  // Sync displayed value when it changes externally
   useEffect(() => {
     setQuery(value || '');
   }, [value]);
 
-  // ferme le dropdown au clic en dehors
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -34,7 +29,7 @@ export default function SearchableSelect({ options, value, onChange, placeholder
   }, [value]);
 
   const filteredOptions = options.filter((opt) =>
-    opt.toLowerCase().includes(query.toLowerCase())
+    normalizeText(opt).includes(normalizeText(query))
   );
 
   const handleSelect = (opt) => {

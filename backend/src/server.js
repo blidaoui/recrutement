@@ -23,7 +23,6 @@ const server = http.createServer(app);
 
 const profileRoutes = require('./routes/profile');
 
-
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'http://localhost:5173',
@@ -38,8 +37,6 @@ const io = new Server(server, {
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
-app.use('/api/profile', profileRoutes);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'secret_fallback',
@@ -58,6 +55,7 @@ app.use('/api/candidatures', candidaturesRoutes);
 app.use('/api/stats',        statsRoutes);
 app.use('/api/admin',        adminRoutes);
 app.use('/api/messages',     messagesRoutes);
+app.use('/api/profile',      profileRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -66,8 +64,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Erreur serveur interne' });
 });
 
-// ── Socket.io — real-time messaging ──────────────────────────
-// Authenticate socket via cookie or auth object
+// Socket.io middleware: authenticate via JWT from cookie or handshake auth
 io.use((socket, next) => {
   try {
     let token = socket.handshake.auth?.token;
@@ -88,19 +85,12 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  // Join personal room to receive targeted messages
+  // Each user joins their own room so they can receive targeted notifications
   socket.join(`user:${socket.userId}`);
 
-  // Join a conversation room
-  socket.on('join_conversation', (convId) => {
-    socket.join(`conv:${convId}`);
-  });
+  socket.on('join_conversation', (convId) => socket.join(`conv:${convId}`));
+  socket.on('leave_conversation', (convId) => socket.leave(`conv:${convId}`));
 
-  socket.on('leave_conversation', (convId) => {
-    socket.leave(`conv:${convId}`);
-  });
-
-  // Send a message in real time
   socket.on('send_message', async ({ conversationId, contenu }) => {
     try {
       if (!contenu?.trim()) return;
@@ -114,10 +104,9 @@ io.on('connection', (socket) => {
         include: { sender: { select: { id: true, nom: true } } },
       });
 
-      // Broadcast to everyone in the conversation room
       io.to(`conv:${conversationId}`).emit('new_message', message);
 
-      // Notify the other user even if not in the room
+      // Push a notification to the other party even if they are not in the conversation room
       const otherId = conv.candidatId === socket.userId ? conv.recruteurId : conv.candidatId;
       io.to(`user:${otherId}`).emit('notification', { conversationId, from: message.sender.nom });
     } catch (err) {
@@ -125,13 +114,32 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('edit_message', ({ conversationId, id, contenu }) => {
+    io.to(`conv:${conversationId}`).emit('message_edited', { id, contenu });
+  });
+
+  socket.on('delete_message', ({ conversationId, id }) => {
+    io.to(`conv:${conversationId}`).emit('message_deleted', { id });
+  });
+
   // Mark messages as read
   socket.on('mark_read', async ({ conversationId }) => {
-    await prisma.message.updateMany({
-      where: { conversationId, senderId: { not: socket.userId }, lu: false },
-      data: { lu: true },
-    });
-    io.to(`conv:${conversationId}`).emit('messages_read', { conversationId, byUserId: socket.userId });
+    try {
+      const convId = Number(conversationId);
+      const conv = await prisma.conversation.findUnique({ where: { id: convId } });
+      if (!conv || (conv.candidatId !== socket.userId && conv.recruteurId !== socket.userId)) return;
+
+      await prisma.message.updateMany({
+        where: { conversationId: convId, senderId: { not: socket.userId }, lu: false },
+        data: { lu: true },
+      });
+
+      io.to(`user:${conv.candidatId}`)
+        .to(`user:${conv.recruteurId}`)
+        .emit('messages_read', { conversationId: convId, byUserId: socket.userId });
+    } catch (err) {
+      console.error('Socket mark_read error:', err);
+    }
   });
 });
 

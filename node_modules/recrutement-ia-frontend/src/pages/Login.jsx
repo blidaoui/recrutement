@@ -27,14 +27,21 @@ export default function Login() {
 
   // Status states
   const [error, setError] = useState('');
+  const [accountDisabled, setAccountDisabled] = useState(false);
+  const [disabledEmail, setDisabledEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('error') === 'google_failed') {
+    const errorCode = params.get('error');
+    setAccountDisabled(errorCode === 'account_disabled');
+    setDisabledEmail(params.get('email') || '');
+    if (errorCode === 'account_disabled') {
+      setError('Ce compte a été désactivé par un administrateur. Contactez l’administration pour demander sa réactivation.');
+    } else if (errorCode === 'google_failed') {
       setError('Échec de la connexion avec Google. Assurez-vous d\'avoir configuré la clé GOOGLE_CLIENT_SECRET valide dans le fichier .env.');
-    } else if (params.get('error') === 'email_exists') {
+    } else if (errorCode === 'email_exists') {
       setError('Un compte avec cet email existe déjà. Veuillez vous connecter avec votre mot de passe.');
     }
     if (params.get('tab') === 'register') {
@@ -42,8 +49,7 @@ export default function Login() {
     }
   }, [location.search]);
 
-  // Construit l'URL de redirection après connexion/inscription, en conservant
-  // l'offre sur laquelle l'utilisateur voulait postuler avant d'être redirigé vers /login
+  // Build redirect target after login/register, preserving the offer the visitor wanted to apply to
   const getRedirectTarget = () => {
     const params = new URLSearchParams(location.search);
     const redirect = params.get('redirect') || '/offres';
@@ -54,17 +60,25 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setAccountDisabled(false);
+    setDisabledEmail('');
     setLoading(true);
 
     try {
       await login(email, motDePasse);
       navigate(getRedirectTarget());
     } catch (err) {
+      const isDisabled = err.response?.data?.code === 'ACCOUNT_DISABLED';
+      setAccountDisabled(isDisabled);
+      if (isDisabled) setDisabledEmail(email);
       setError(err.response?.data?.message || 'Erreur lors de la connexion');
     } finally {
       setLoading(false);
     }
   };
+
+  const activationEmail = disabledEmail || email;
+  const contactAdminLink = `mailto:admin@admin.com?subject=${encodeURIComponent('Demande de réactivation de compte')}&body=${encodeURIComponent(`Bonjour,\n\nMon compte associé à l'adresse ${activationEmail || '[votre adresse email]'} a été désactivé. Pourriez-vous vérifier ma situation et le réactiver si possible ?\n\nMerci.`)}`;
 
   const onPhotoChoisie = (e) => {
     const file = e.target.files?.[0];
@@ -92,7 +106,7 @@ export default function Login() {
     try {
       await register({ nom, email, motDePasse });
 
-      // La photo est optionnelle : si l'upload échoue, on ne bloque pas la création du compte
+      // Photo upload is optional — don't block account creation if it fails
       if (photoFile) {
         try {
           const formData = new FormData();
@@ -135,7 +149,7 @@ export default function Login() {
     }
   };
 
-  // ✅ Reset fields when arriving on /login
+  // Reset fields when navigating to /login
   useEffect(() => {
     if (location.pathname === '/login') {
       setEmail('');
@@ -148,7 +162,7 @@ export default function Login() {
     }
   }, [location.pathname]);
 
-  // ✅ Optional: force remount when route changes
+  // Force remount when route changes
   const formKey = location.pathname + activeTab;
   return (
     <div className="auth-container">
@@ -177,7 +191,16 @@ export default function Login() {
           </div>
         )}
 
-        {error && <div className="auth-error-alert">{error}</div>}
+        {error && (
+          <div className="auth-error-alert">
+            <div>{error}</div>
+            {accountDisabled && (
+              <a className="auth-contact-admin" href={contactAdminLink}>
+                Contacter l’administration par email
+              </a>
+            )}
+          </div>
+        )}
 
         {activeTab === 'login' && (
           /* Choix 1: Connexion par Email / Mot de passe */
@@ -187,6 +210,8 @@ export default function Login() {
               <input
                 id="login-email"
                 type="email"
+                pattern="[^ @]+@[^ @]+[.][^ @]+"
+                title="Format attendu : sarah.benali@talent.tn"
                 placeholder="votre.email@exemple.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -264,6 +289,8 @@ export default function Login() {
               <input
                 id="register-email"
                 type="email"
+                pattern="[^ @]+@[^ @]+[.][^ @]+"
+                title="Format attendu : sarah.benali@talent.tn"
                 placeholder="votre.email@exemple.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -316,6 +343,8 @@ export default function Login() {
                   <input
                     id="forgot-email"
                     type="email"
+                    pattern="[^ @]+@[^ @]+[.][^ @]+"
+                    title="Format attendu : sarah.benali@talent.tn"
                     placeholder="votre.email@exemple.com"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}

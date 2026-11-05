@@ -148,7 +148,7 @@ async function supprimerOffre(req, res) {
       return res.status(403).json({ message: 'Vous n\'avez pas l\'autorisation de supprimer cette offre' });
     }
 
-    // Supprimer d'abord les candidatures liées à cette offre pour intégrité référentielle
+    // Delete candidatures first to maintain referential integrity
     await prisma.candidature.deleteMany({ where: { offreId } });
 
     // Supprimer l'offre

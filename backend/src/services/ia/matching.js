@@ -1,14 +1,9 @@
 /**
- * Calcule un score de matching entre les compétences d'un candidat et
- * celles requises par une offre.
+ * Calculates a matching score between a candidate's skills and a job offer's required skills.
  *
- * Formule : (nb compétences communes / nb compétences requises) x 100
- * Bonus léger pour les compétences supplémentaires du candidat (jusqu'à +10 pts),
- * pour valoriser un profil plus riche sans fausser le cœur du calcul.
- *
- * @param {string[]} skillsCandidat
- * @param {string[]} skillsRequises
- * @returns {{ score: number, skillsCommunes: string[], skillsManquantes: string[] }}
+ * Score = (matched skills / required skills) * 100
+ * Bonus up to +10 pts for extra skills the candidate has beyond the requirements,
+ * rewarding a richer profile without distorting the core calculation.
  */
 function calculerScoreMatching(skillsCandidat, skillsRequises) {
   if (!skillsRequises || skillsRequises.length === 0) {
@@ -23,7 +18,7 @@ function calculerScoreMatching(skillsCandidat, skillsRequises) {
 
   let score = (skillsCommunes.length / skillsRequises.length) * 100;
 
-  // Bonus pour compétences additionnelles pertinentes (hors périmètre requis)
+  // Bonus for extra skills the candidate has beyond the required set
   const skillsSupplementaires = skillsCandidat.filter((s) => !requisesSet.has(s.toLowerCase()));
   const bonus = Math.min(skillsSupplementaires.length * 2, 10);
 

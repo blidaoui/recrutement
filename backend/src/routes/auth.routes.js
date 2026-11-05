@@ -35,6 +35,10 @@ router.get('/google/callback', (req, res, next) => {
       const errorCode = err?.message?.includes('mot de passe') ? 'email_exists' : 'google_failed';
       return res.redirect(`${frontendUrl}/login?error=${errorCode}`);
     }
+    if (!user.actif) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      return res.redirect(`${frontendUrl}/login?error=account_disabled&email=${encodeURIComponent(user.email)}`);
+    }
     req.user = user;
     googleCallback(req, res);
   })(req, res, next);

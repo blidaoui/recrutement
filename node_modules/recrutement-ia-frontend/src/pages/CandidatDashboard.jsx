@@ -5,8 +5,8 @@ import ProfileSection from './ProfileSection';
 import CandidatureList from '../components/CandidatureList';
 
 
-export default function CondidatDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'profile'
+export default function CandidatDashboard() {
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <div className="page-espace-candidat">
@@ -65,27 +65,62 @@ function DashboardTab() {
 
   const activeCv = cvList.length > 0 ? cvList[0] : null;
 
+  const accepted = candidatures.filter(c => c.statut === 'ACCEPTEE').length;
+  const pending  = candidatures.filter(c => c.statut === 'EN_ATTENTE').length;
+  const avgScore = candidatures.length
+    ? Math.round(candidatures.reduce((s, c) => s + (c.scoreMatching || 0), 0) / candidatures.length)
+    : 0;
+
   return (
-    <div className="page-dashboard">
-      <div className="dashboard-header">
-        <h2>Mon Espace Candidat</h2>
-        <p>Gérez votre CV, visualisez vos compétences détectées et suivez vos candidatures.</p>
+    <div className="cd-page">
+      {/* Hero header */}
+      <div className="cd-hero">
+        <div className="cd-hero-text">
+          <div className="cd-hero-badge">Mon Espace</div>
+          <h2 className="cd-hero-title">Tableau de bord</h2>
+          <p className="cd-hero-sub">Gérez votre CV, vos compétences IA et suivez vos candidatures.</p>
+        </div>
+        <div className="cd-kpis">
+          <div className="cd-kpi">
+            <span className="cd-kpi-val">{candidatures.length}</span>
+            <span className="cd-kpi-label">Candidatures</span>
+          </div>
+          <div className="cd-kpi cd-kpi--green">
+            <span className="cd-kpi-val">{accepted}</span>
+            <span className="cd-kpi-label">Acceptées</span>
+          </div>
+          <div className="cd-kpi">
+            <span className="cd-kpi-val">{pending}</span>
+            <span className="cd-kpi-label">En attente</span>
+          </div>
+          <div className="cd-kpi cd-kpi--purple">
+            <span className="cd-kpi-val">{avgScore}%</span>
+            <span className="cd-kpi-label">Score moyen</span>
+          </div>
+        </div>
       </div>
 
       {loading ? (
         <div className="loading-state">Chargement de votre espace...</div>
       ) : (
-        <>
-          <section className="dashboard-section">
-            <h3>Mon CV & Compétences IA</h3>
+        <div className="cd-grid">
+          <section className="cd-section">
+            <div className="cd-section-title">
+              <span className="cd-section-icon">📄</span>
+              Mon CV & Compétences IA
+            </div>
             <CVUpload activeCv={activeCv} onUploaded={handleCvUploaded} />
           </section>
 
-          <section className="dashboard-section">
-            <h3>Mes Candidatures en cours ({candidatures.length})</h3>
+          <section className="cd-section">
+            <div className="cd-section-title">
+              <span className="cd-section-icon">🎯</span>
+              Mes Candidatures
+              <span className="cd-section-count">{candidatures.length}</span>
+            </div>
             <CandidatureList candidatures={candidatures} />
           </section>
-        </>
+        </div>
       )}
     </div>
   );

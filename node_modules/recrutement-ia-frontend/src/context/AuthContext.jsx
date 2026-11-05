@@ -36,15 +36,11 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch (err) {
-      // On loggue l'erreur mais on ne bloque jamais la déconnexion côté client
-      // pour ça : même si l'appel API échoue (cookie déjà expiré, réseau...),
-      // l'utilisateur doit quand même être déconnecté visuellement.
+      // Always clear the session client-side even if the API call fails
       console.error('Logout failed', err);
     } finally {
       setUser(null);
-      // window.location.href (et non navigate()) pour forcer un vrai rechargement
-      // complet de la page : ça vide aussi tout état résiduel ailleurs dans l'app
-      // (dashboard, socket, listes en cache, etc.), pas seulement la route.
+      // Hard redirect (not navigate()) to flush all in-memory state: socket, caches, etc.
       window.location.href = '/';
     }
   };

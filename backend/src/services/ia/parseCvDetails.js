@@ -14,9 +14,20 @@ function parseCvDetails(rawText) {
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
   const email = emailMatch ? emailMatch[0] : null;
 
-  // Extraction de téléphone (formats FR / Maroc / Intl: +33 6..., 06..., +212...)
-  const phoneMatch = text.match(/(?:(?:\+|00)\d{1,3}[-.\s]?)?0[1-9](?:[-.\s]?\d{2}){4}|(?:\+\d{1,3}[-.\s]?)?\d{8,12}/);
-  const telephone = phoneMatch ? phoneMatch[0].trim() : null;
+  // Extraction de téléphone
+  // 1) Recherche avec préfixes courants (Tél, Téléphone, Mobile, Phone, Portable, Contact...)
+  const labeledRegex = /(?:t[ée]l(?:[ée]phone)?|mobile|phone|portable|contact)[\s\w()/:.-]*[:\s-]\s*((?:(?:\+|00)\d{1,3}[\s.-]?(?:\(0\))?[\s.-]?|\(\+?\d{1,3}\)[\s.-]?)?(?:0|\b)[1-9](?:[\s.-]?\d){7,11}\b)/i;
+  const labeledMatch = text.match(labeledRegex);
+
+  let telephone = null;
+  if (labeledMatch && labeledMatch[1]) {
+    telephone = labeledMatch[1].trim();
+  } else {
+    // 2) Recherche globale avec indicatif international ou format national (sans capturer de dates)
+    const generalRegex = /(?:(?:\+|00)\d{1,3}[\s.-]?(?:\(0\))?[\s.-]?|\(\+?\d{1,3}\)[\s.-]?)?(?:0|\b)[1-9](?:[\s.-]?\d){7,11}\b/;
+    const generalMatch = text.match(generalRegex);
+    telephone = generalMatch ? generalMatch[0].trim() : null;
+  }
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const previewText = lines.slice(0, 12).join('\n');

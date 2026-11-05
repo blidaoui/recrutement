@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const prisma = require('../config/db');
 const { sendResetPasswordEmail } = require('../utils/email');
+const deleteUserWithRelations = require('../utils/deleteUserWithRelations');
+const { isValidEmail } = require('../utils/emailValidation');
 
 function generateToken(user) {
   return jwt.sign(
@@ -12,6 +14,7 @@ function generateToken(user) {
   );
 }
 
+// Sets a secure httpOnly cookie carrying the JWT
 function setTokenCookie(res, token) {
   res.cookie('token', token, {
     httpOnly: true,
@@ -21,20 +24,25 @@ function setTokenCookie(res, token) {
   });
 }
 
-// Inscription classique Email / Mot de passe
+// Classic email/password registration
 async function register(req, res) {
   try {
     const { nom, email, motDePasse } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
 
-    if (!nom || !email || !motDePasse) {
+    if (!nom || !normalizedEmail || !motDePasse) {
       return res.status(400).json({ message: 'Tous les champs obligatoires doivent être remplis' });
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Adresse email invalide. Exemple : sarah.benali@talent.tn' });
     }
 
     if (motDePasse.length < 6) {
       return res.status(400).json({ message: 'Le mot de passe doit contenir au moins 6 caractères' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ message: 'Un compte avec cet email existe déjà' });
     }
@@ -44,7 +52,7 @@ async function register(req, res) {
     const user = await prisma.user.create({
       data: {
         nom,
-        email,
+        email: normalizedEmail,
         motDePasse: hashedPassword,
         role: 'CANDIDAT',
       },
@@ -65,16 +73,21 @@ async function register(req, res) {
   }
 }
 
-// Connexion classique Email / Mot de passe
+// Classic email/password login
 async function login(req, res) {
   try {
     const { email, motDePasse } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
 
-    if (!email || !motDePasse) {
+    if (!normalizedEmail || !motDePasse) {
       return res.status(400).json({ message: 'Email et mot de passe requis' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Adresse email invalide. Exemple : sarah.benali@talent.tn' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user || !user.motDePasse) {
       return res.status(400).json({ message: 'Email ou mot de passe incorrect' });
     }
@@ -82,6 +95,13 @@ async function login(req, res) {
     const isMatch = await bcrypt.compare(motDePasse, user.motDePasse);
     if (!isMatch) {
       return res.status(400).json({ message: 'Email ou mot de passe incorrect' });
+    }
+
+    if (!user.actif) {
+      return res.status(403).json({
+        code: 'ACCOUNT_DISABLED',
+        message: 'Ce compte a été désactivé par un administrateur.',
+      });
     }
 
     const token = generateToken(user);
@@ -99,7 +119,7 @@ async function login(req, res) {
   }
 }
 
-// Appelé après succès de l'authentification Google (passport)
+// Called after successful Google OAuth (passport)
 function googleCallback(req, res) {
   const token = generateToken(req.user);
   setTokenCookie(res, token);
@@ -125,11 +145,16 @@ async function updateProfile(req, res) {
 
     const data = {};
     if (nom?.trim()) data.nom = nom.trim();
-    if (email?.trim()) {
-      const existing = await prisma.user.findUnique({ where: { email: email.trim() } });
+    if (email !== undefined) {
+      const normalizedEmail = String(email).trim();
+      if (!isValidEmail(normalizedEmail)) {
+        return res.status(400).json({ message: 'Adresse email invalide. Exemple : sarah.benali@talent.tn' });
+      }
+
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (existing && existing.id !== userId)
         return res.status(400).json({ message: 'Cet email est déjà utilisé par un autre compte' });
-      data.email = email.trim();
+      data.email = normalizedEmail;
     }
     if (motDePasse) {
       if (motDePasse.length < 6)
@@ -152,10 +177,7 @@ async function deleteAccount(req, res) {
     if (req.user.role === 'ADMIN')
       return res.status(403).json({ message: 'Le compte administrateur ne peut pas être supprimé' });
 
-    await prisma.candidature.deleteMany({ where: { candidatId: userId } });
-    await prisma.cV.deleteMany({ where: { candidatId: userId } });
-    await prisma.offre.deleteMany({ where: { recruteurId: userId } });
-    await prisma.user.delete({ where: { id: userId } });
+    await deleteUserWithRelations(prisma, userId);
 
     res.clearCookie('token');
     res.json({ message: 'Compte supprimé avec succès' });
@@ -170,14 +192,19 @@ async function deleteAccount(req, res) {
 async function forgotPassword(req, res) {
   try {
     const { email } = req.body;
-    if (!email) {
+    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
+    if (!normalizedEmail) {
       return res.status(400).json({ message: 'Adresse email requise' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Adresse email invalide. Exemple : sarah.benali@talent.tn' });
+    }
 
-    // Réponse générique dans tous les cas, pour ne pas révéler si l'email existe en base
-    const genericResponse = {
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+  // Generic response in all cases to avoid leaking whether the email exists
+  const genericResponse = {
       message: 'Si un compte existe avec cet email, un lien de réinitialisation vient d\'être envoyé.',
     };
 
@@ -185,7 +212,7 @@ async function forgotPassword(req, res) {
       return res.json(genericResponse);
     }
 
-    // Token brut envoyé par email ; seul son hash est stocké en base (comme un mot de passe)
+    // Raw token sent by email; only its hash is stored in DB (like a password)
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
@@ -247,7 +274,7 @@ async function resetPassword(req, res) {
       },
     });
 
-    // Connecte automatiquement l'utilisateur après la réinitialisation
+    // Auto-login after successful password reset
     const authToken = generateToken(updated);
     setTokenCookie(res, authToken);
 

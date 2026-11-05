@@ -107,6 +107,11 @@ model Message {
   senderId       Int
   sender         User         @relation("MessageSender", fields: [senderId], references: [id])
   contenu        String
+  attachmentType String?      @default("TEXT")
+  attachmentUrl  String?
+  attachmentName String?
+  mimeType       String?
   lu             Boolean      @default(false)
+  edited         Boolean      @default(false)
   createdAt      DateTime     @default(now())
 }

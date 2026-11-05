@@ -143,7 +143,6 @@ export default function AdminDashboard() {
     <div className="page-dashboard">
       <div className="dashboard-header">
         <h2>Tableau de bord</h2>
-        <p>Bonjour {user?.nom}, voici l'état de votre activité.</p>
       </div>
 
       <div className="auth-tabs" style={{ marginBottom: '1.5rem' }}>
@@ -213,21 +212,8 @@ export default function AdminDashboard() {
                 <Tooltip formatter={(v, name) => [v, name]} />
               </PieChart>
             </ResponsiveContainer>
-            <button type="button" className="btn-toggle-text" onClick={() => setShowStatutDetail(!showStatutDetail)}>
-              {showStatutDetail ? 'Masquer les données' : '› Voir les données'}
-            </button>
-            {showStatutDetail && (
-              <table className="mini-stats-table">
-                <tbody>
-                  {statutsData.map((s) => (
-                    <tr key={s.name}>
-                      <td><span style={{ color: s.fill }}>●</span> {s.name}</td>
-                      <td><strong>{s.value}</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          
+     
           </div>
 
           {/* Offres les plus demandées */}
@@ -261,21 +247,7 @@ export default function AdminDashboard() {
                 <Bar dataKey="nbCandidatures" fill="#6366f1" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <button type="button" className="btn-toggle-text" onClick={() => setShowTopOffres(!showTopOffres)}>
-              {showTopOffres ? 'Masquer les données' : '› Voir les données'}
-            </button>
-            {showTopOffres && (
-              <table className="mini-stats-table">
-                <tbody>
-                  {topOffresData.map((o) => (
-                    <tr key={o.titre}>
-                      <td>{o.titre}</td>
-                      <td><strong>{o.nbCandidatures}</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+           
           </div>
         </div>
       )}
@@ -412,6 +384,8 @@ export default function AdminDashboard() {
                   </label>
                   <input
                     type="email"
+                    pattern="[^ @]+@[^ @]+[.][^ @]+"
+                    title="Format attendu : sarah.benali@talent.tn"
                     placeholder="jean.dupont@example.com"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}

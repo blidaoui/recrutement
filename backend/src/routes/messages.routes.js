@@ -1,4 +1,5 @@
 const express = require('express');
+const multer = require('../config/multer');
 const { requireAuth } = require('../middleware/auth');
 const {
   getUsersForMessaging,
@@ -6,6 +7,8 @@ const {
   createOrGetConversation,
   getMessages,
   sendMessage,
+  editMessage,
+  deleteMessage,
   getUnreadCount,
 } = require('../controllers/messages.controller');
 
@@ -18,6 +21,8 @@ router.get('/unread-count', getUnreadCount);
 router.get('/conversations', getConversations);
 router.post('/conversations', createOrGetConversation);
 router.get('/conversations/:id', getMessages);
-router.post('/conversations/:id', sendMessage);
+router.post('/conversations/:id', multer.single('file'), sendMessage);
+router.patch('/messages/:id', editMessage);
+router.delete('/messages/:id', deleteMessage);
 
 module.exports = router;

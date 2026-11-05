@@ -6,15 +6,20 @@ import SearchableSelect from '../components/Searchableselect';
 import { COUNTRIES } from '../data/countries';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+import { isValidEmail } from '../utils/emailValidation';
+import { matchOfferSearch, normalizeText } from '../utils/searchMatcher';
 import { RiSearchAi2Line } from "react-icons/ri";
 import { RiUserLocationFill } from "react-icons/ri";
 import { IoReloadOutline } from "react-icons/io5";
 import { ImOffice } from "react-icons/im";
 
+const normalizePhone = (value) => String(value || '').replace(/\D/g, '').slice(0, 15);
+
 export default function Offres() {
 
   const [offres, setOffres] = useState([]);
   const [mesCandidatures, setMesCandidatures] = useState([]);
+  const [candidaturesUserId, setCandidaturesUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -23,26 +28,15 @@ export default function Offres() {
   const [filterPays, setFilterPays] = useState('');
 
 
-  // Modale d'upload de CV (Candidat sans CV)
   const [targetOffreId, setTargetOffreId] = useState(null);
   const [cvFile, setCvFile] = useState(null);
   const [uploadingCv, setUploadingCv] = useState(false);
-
-  // Modale "connectez-vous pour postuler" (Visiteur non connecté)
   const [visiteurOffre, setVisiteurOffre] = useState(null);
-
-  // Infos CV du candidat connecté, utilisées pour la modale de confirmation
   const [monCv, setMonCv] = useState(null);
-
-  // Modale de confirmation avant l'envoi réel de la candidature
   const [confirmOffre, setConfirmOffre] = useState(null);
-
-  // Édition des infos directement dans la modale de confirmation
   const [editingInfo, setEditingInfo] = useState(false);
   const [editForm, setEditForm] = useState({ nom: '', email: '', telephone: '' });
   const [savingInfo, setSavingInfo] = useState(false);
-
-  // Remplacement du CV directement dans la modale de confirmation
   const [replacingCv, setReplacingCv] = useState(false);
   const [newCvFile, setNewCvFile] = useState(null);
   const [uploadingNewCv, setUploadingNewCv] = useState(false);
@@ -69,9 +63,15 @@ export default function Offres() {
       try {
         const res = await api.get('/candidatures/mes-candidatures');
         setMesCandidatures(res.data.candidatures || []);
+        setCandidaturesUserId(user.id);
       } catch (err) {
         console.error(err);
+        setMesCandidatures([]);
+        setCandidaturesUserId(null);
       }
+    } else {
+      setMesCandidatures([]);
+      setCandidaturesUserId(null);
     }
   };
 
@@ -97,20 +97,12 @@ export default function Offres() {
 
   const appliedOffreIds = new Set(mesCandidatures.map((c) => c.offreId));
 
-  const q = search.toLowerCase();
-  const qPays = filterPays.toLowerCase();
+  const qPays = normalizeText(filterPays);
   const offresFiltrees = offres.filter((o) => {
     const matchStatut = filterStatut === 'toutes' || o.statut === filterStatut;
     const matchContrat = filterContrat === 'tous' || o.typeContrat === filterContrat;
-    const matchPays = !qPays || o.pays?.toLowerCase().includes(qPays);
-    const matchSearch = !q ||
-      o.titre?.toLowerCase().includes(q) ||
-      o.entreprise?.toLowerCase().includes(q) ||
-      o.description?.toLowerCase().includes(q) ||
-      o.pays?.toLowerCase().includes(q) ||
-      o.skillsRequises?.some((s) => s.toLowerCase().includes(q)) ||
-      o.skillsObligatoires?.some((s) => s.toLowerCase().includes(q)) ||
-      o.skillsSouhaitees?.some((s) => s.toLowerCase().includes(q));
+    const matchPays = !qPays || normalizeText(o.pays).includes(qPays);
+    const matchSearch = matchOfferSearch(o, search);
     return matchStatut && matchContrat && matchPays && matchSearch;
   });
 
@@ -134,17 +126,22 @@ export default function Offres() {
     navigate(`/login?redirect=/offres&offreId=${visiteurOffre.id}`);
   };
 
-  // Si l'utilisateur vient de se connecter et qu'une candidature était en attente
-  // (déclenchée depuis la modale "Connectez-vous pour postuler"), on rouvre la
-  // modale de confirmation sur cette offre — on ne postule jamais sans que le
-  // candidat ait revu et validé ses informations.
+  // If the user just logged in with a pending application, reopen the confirmation modal.
+  // We never auto-apply — the candidate must always review and confirm first.
   useEffect(() => {
     const pendingOffreId = localStorage.getItem('pendingOffreId');
-    if (!pendingOffreId || user?.role !== 'CANDIDAT' || offres.length === 0) return;
+    if (
+      !pendingOffreId ||
+      user?.role !== 'CANDIDAT' ||
+      candidaturesUserId !== user.id ||
+      offres.length === 0
+    ) return;
 
     localStorage.removeItem('pendingOffreId');
     const matchedOffre = offres.find((o) => String(o.id) === String(pendingOffreId));
-    if (matchedOffre && !appliedOffreIds.has(matchedOffre.id)) {
+    if (matchedOffre && appliedOffreIds.has(matchedOffre.id)) {
+      showToast('error', 'Vous avez déjà postulé à cette offre.');
+    } else if (matchedOffre) {
       setConfirmOffre(matchedOffre);
       setEditingInfo(false);
       setReplacingCv(false);
@@ -152,15 +149,13 @@ export default function Offres() {
       setEditForm({
         nom: user?.nom || '',
         email: monCv?.emailExtrait || user?.email || '',
-        telephone: monCv?.telephoneExtrait || '',
+        telephone: normalizePhone(monCv?.telephoneExtrait),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, offres]);
+  }, [user, offres, candidaturesUserId, mesCandidatures]);
 
-  // Point d'entrée du bouton "Postuler" (OffreCard ne transmet que l'id) :
-  // on affiche toujours d'abord la récapitulation des informations du
-  // candidat avant l'envoi réel de la candidature.
+  // Entry point for the "Apply" button — always shows a confirmation modal first
   const handleDemandePostuler = (offreId) => {
     const offre = offres.find((o) => String(o.id) === String(offreId));
     if (offre) {
@@ -171,23 +166,35 @@ export default function Offres() {
       setEditForm({
         nom: user?.nom || '',
         email: monCv?.emailExtrait || user?.email || '',
-        telephone: monCv?.telephoneExtrait || '',
+        telephone: normalizePhone(monCv?.telephoneExtrait),
       });
     }
   };
 
-  // Enregistre les modifications faites directement dans la modale de confirmation :
-  // nom/email sur le profil utilisateur, téléphone sur le CV actif.
+  // Saves edits made in the confirmation modal: name/email on user profile, phone on CV
   const handleSaveInfo = async () => {
+    const telephone = normalizePhone(editForm.telephone);
+    const email = editForm.email.trim();
+
+    if (!isValidEmail(email)) {
+      showToast('error', 'Adresse email invalide. Exemple : sarah.benali@talent.tn');
+      return;
+    }
+
+    if (telephone && !/^\d{8,15}$/.test(telephone)) {
+      showToast('error', 'Le téléphone doit contenir entre 8 et 15 chiffres.');
+      return;
+    }
+
     setSavingInfo(true);
     try {
-      const resProfile = await api.put('/auth/profile', { nom: editForm.nom, email: editForm.email });
+      const resProfile = await api.put('/auth/profile', { nom: editForm.nom, email });
       if (resProfile.data?.user) setUser(resProfile.data.user);
 
       if (monCv) {
         await api.put('/cv/contact', {
-          telephoneExtrait: editForm.telephone,
-          emailExtrait: editForm.email,
+          telephoneExtrait: telephone,
+          emailExtrait: email,
         });
       }
 
@@ -248,8 +255,7 @@ export default function Offres() {
   };
 
 
-  // Ferme la modale de confirmation et remet à zéro tous ses sous-états
-  // (édition d'infos, remplacement de CV) pour la prochaine ouverture.
+  // Closes the confirmation modal and resets all its sub-states
   const closeConfirmModal = () => {
     setConfirmOffre(null);
     setEditingInfo(false);
@@ -257,8 +263,7 @@ export default function Offres() {
     setNewCvFile(null);
   };
 
-  // Remplace le CV actif du candidat (accessible à tout moment depuis la modale
-  // de confirmation, pas seulement quand il n'a pas encore de CV).
+  // Replaces the candidate's active CV from within the confirmation modal
   const handleReplaceCv = async (e) => {
     e.preventDefault();
     if (!newCvFile) return;
@@ -375,7 +380,7 @@ export default function Offres() {
           </div>
         </>
       )}
-      {/* Modal d'Upload instantané du CV (Candidat) */}
+      {/* CV upload modal (candidate without a CV) */}
       {targetOffreId && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -427,7 +432,7 @@ export default function Offres() {
         </div>
       )}
 
-      {/* Modale de confirmation avant l'envoi réel de la candidature */}
+      {/* Application confirmation modal */}
       {confirmOffre && (
         <div className="modal-overlay" onClick={() => closeConfirmModal()}>
           <div className="modal-card login-prompt-card" onClick={(e) => e.stopPropagation()}>
@@ -526,6 +531,9 @@ export default function Offres() {
                         <label>Email</label>
                         <input
                           type="email"
+                          pattern="[^ @]+@[^ @]+[.][^ @]+"
+                          required
+                          title="Format attendu : sarah.benali@talent.tn"
                           value={editForm.email}
                           onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
                         />
@@ -533,10 +541,15 @@ export default function Offres() {
                       <div className="form-group">
                         <label>Téléphone</label>
                         <input
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]{8,15}"
+                          maxLength={15}
                           value={editForm.telephone}
-                          onChange={(e) => setEditForm((f) => ({ ...f, telephone: e.target.value }))}
+                          onChange={(e) => setEditForm((f) => ({ ...f, telephone: normalizePhone(e.target.value) }))}
                           placeholder="Non renseigné"
                         />
+                        <small className="field-hint">8 à 15 chiffres, sans espaces.</small>
                       </div>
                     </div>
 
@@ -544,7 +557,12 @@ export default function Offres() {
                       <button type="button" className="btn-cancel" onClick={() => setEditingInfo(false)} disabled={savingInfo}>
                         Annuler
                       </button>
-                      <button type="button" className="btn-modal-submit" onClick={handleSaveInfo} disabled={savingInfo}>
+                      <button
+                        type="button"
+                        className="btn-modal-submit"
+                        onClick={handleSaveInfo}
+                        disabled={savingInfo || Boolean(editForm.telephone && editForm.telephone.length < 8)}
+                      >
                         {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
                       </button>
                     </div>
@@ -628,7 +646,7 @@ export default function Offres() {
         </div>
       )}
 
-      {/* Modale "Connectez-vous pour postuler" (Visiteur non connecté) */}
+      {/* "Login to apply" modal (unauthenticated visitor) */}
       {visiteurOffre && (
         <div className="modal-overlay" onClick={() => setVisiteurOffre(null)}>
           <div className="modal-card login-prompt-card" onClick={(e) => e.stopPropagation()}>

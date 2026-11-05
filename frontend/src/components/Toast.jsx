@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const AUTO_DISMISS_MS = 3500;
+const AUTO_DISMISS_MS = 5000;
 const EXIT_ANIM_MS = 250;
 
 let idCounter = 0;
 
-// Petit système de toasts autonome (sans dépendance externe).
-// Usage : const { showToast, ToastViewport } = useToast();
-//         showToast('success', 'Profil mis à jour avec succès !');
-//         <ToastViewport /> quelque part dans le rendu du composant.
+/**
+ * Lightweight self-contained toast system.
+ * Usage: const { showToast, ToastViewport } = useToast();
+ *        showToast('success', 'Profile updated!');
+ *        <ToastViewport /> somewhere in the component render.
+ */
 export function useToast() {
   const [toasts, setToasts] = useState([]);
   const timers = useRef({});

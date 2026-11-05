@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
 
-// Page affichée sur /reset-password/:token, atteinte via le lien envoyé par email.
+// Page reached via the reset link sent by email: /reset-password/:token
 export default function ResetPassword() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -41,9 +41,8 @@ export default function ResetPassword() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Erreur lors de la réinitialisation');
 
-      // Le backend a déjà posé le cookie d'authentification à ce stade ;
-      // on met à jour le contexte tout de suite pour que l'app reflète
-      // immédiatement la connexion, sans attendre un rechargement.
+      // Backend already set the auth cookie at this point;
+      // update context immediately so the app reflects the login without a reload.
       if (data.user) setUser(data.user);
 
       setSuccess(true);

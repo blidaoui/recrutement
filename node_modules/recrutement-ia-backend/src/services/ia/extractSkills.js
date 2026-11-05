@@ -1,33 +1,49 @@
 const skillsReference = require('./skillsReference');
 
-/**
- * Extrait les compétences reconnues à partir d'un texte brut (CV ou offre).
- * Approche : correspondance par variantes/synonymes, insensible à la casse,
- * avec vérification de "frontière de mot" pour éviter les faux positifs
- * (ex: "java" ne doit pas matcher dans "javascript").
- *
- * @param {string} texte
- * @returns {string[]} liste des compétences détectées (noms canoniques, sans doublons)
- */
-function extractSkills(texte) {
-  if (!texte) return [];
-
-  const texteNormalise = texte.toLowerCase();
-  const skillsDetectees = new Set();
-
+function extractSkillsFallback(texte) {
+  const lower = texte.toLowerCase();
+  const found = [];
   for (const { skill, variants } of skillsReference) {
-    for (const variant of variants) {
-      const variantEchappee = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(?<![a-z0-9])${variantEchappee}(?![a-z0-9])`, 'i');
+    const matched = variants.some((v) => {
+      const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`).test(lower);
+    });
+    if (matched) found.push(skill);
+  }
+  return found;
+}
 
-      if (regex.test(texteNormalise)) {
-        skillsDetectees.add(skill);
-        break; // pas besoin de tester les autres variantes de cette compétence
-      }
-    }
+async function extractSkills(texte) {
+  if (!texte || !texte.trim()) return [];
+
+  if (!process.env.GEMINI_API_KEY) {
+    return extractSkillsFallback(texte);
   }
 
-  return Array.from(skillsDetectees);
+  try {
+    const { GoogleGenAI } = require('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `You are an expert HR recruiter. Analyze this CV text and extract all technical skills, professional know-how, tools, and languages mentioned.
+
+Rules:
+- Return ONLY a JSON array of strings (no text before or after).
+- Expected format: ["Skill 1", "Skill 2", ...]
+- Normalize skill names (e.g. "React.js", "Plomberie", "Négociation commerciale").
+
+CV text:
+${texte.substring(0, 8000)}`,
+      config: { responseMimeType: 'application/json' },
+    });
+
+    const parsed = JSON.parse(response.text);
+    return Array.isArray(parsed) ? parsed : extractSkillsFallback(texte);
+  } catch (err) {
+    console.warn('AI skill extraction failed, using fallback:', err.message);
+    return extractSkillsFallback(texte);
+  }
 }
 
 module.exports = { extractSkills };

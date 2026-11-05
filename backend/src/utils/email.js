@@ -1,8 +1,10 @@
 const nodemailer = require('nodemailer');
 
-// Transporteur SMTP configuré via variables d'environnement.
-// Si aucune config SMTP n'est fournie (ex: en développement), on se contente
-// d'afficher le lien de réinitialisation dans la console au lieu d'échouer.
+/**
+ * SMTP transporter configured via environment variables.
+ * If no SMTP config is provided (e.g. in development), the reset link
+ * is printed to the console instead of failing.
+ */
 function getTransporter() {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
 
@@ -19,9 +21,7 @@ function getTransporter() {
 }
 
 async function sendResetPasswordEmail(to, nom, resetLink) {
-  // En développement, on affiche toujours le lien dans la console, même si le
-  // SMTP est configuré : pratique pour les comptes de test dont l'adresse
-  // email est fictive et ne peut de toute façon rien recevoir.
+  // In development, always log the link — useful for test accounts with fake emails
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[email] Lien de réinitialisation pour ${to} :\n${resetLink}`);
   }
@@ -37,9 +37,7 @@ async function sendResetPasswordEmail(to, nom, resetLink) {
     return;
   }
 
-  // L'envoi réel ne doit jamais faire échouer la requête : si l'adresse est
-  // invalide/fictive (comptes de test) ou que le SMTP a un souci ponctuel,
-  // le lien reste de toute façon disponible dans les logs ci-dessus.
+  // Never let email failures break the request — the link is already in the logs above
   try {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || '"Plateforme IA Recrutement" <no-reply@example.com>',
