@@ -142,8 +142,14 @@ io.on('connection', (socket) => {
     }
   });
 });
-
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
-});
+
+// Only start listening when this file is run directly (npm run dev),
+// not when the tests import it.
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Serveur démarré sur http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, server, io };
