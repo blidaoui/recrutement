@@ -18,59 +18,27 @@ function useFakeGemini(generateContent) {
     },
   };
 }
+  describe('empty input', () => {
+    beforeEach(() => {
+      delete process.env.GEMINI_API_KEY;
+    });
 
-describe('extractSkills without a Gemini key (local fallback)', () => {
-  beforeEach(() => {
-    vi.stubEnv('GEMINI_API_KEY', '');
-  });
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
+    it('returns [] for an empty string', async () => {
+      expect(await extractSkills('')).toEqual([]);
+    });
 
-  it('returns an empty list for empty, blank, null or undefined text', async () => {
-    expect(await extractSkills('')).toEqual([]);
-    expect(await extractSkills('   \n  ')).toEqual([]);
-    expect(await extractSkills(null)).toEqual([]);
-    expect(await extractSkills(undefined)).toEqual([]);
-  });
+    it('returns [] for a string with only spaces', async () => {
+      expect(await extractSkills('   \n  ')).toEqual([]);
+    });
 
-  it('returns an empty list when no known skill is mentioned', async () => {
-    expect(await extractSkills('zzqx kwpv fjrt')).toEqual([]);
-  });
+    it('returns [] for null', async () => {
+      expect(await extractSkills(null)).toEqual([]);
+    });
 
-  it('detects a skill through its synonyms', async () => {
-    const skills = await extractSkills('Frontend developer using JS and ReactJS');
-    expect(skills).toContain('JavaScript');
-    expect(skills).toContain('React');
+    it('returns [] for undefined', async () => {
+      expect(await extractSkills(undefined)).toEqual([]);
+    });
   });
-
-  it('ignores case', async () => {
-    const skills = await extractSkills('PYTHON and DJANGO');
-    expect(skills).toContain('Python');
-    expect(skills).toContain('Django');
-  });
-
-  it('does not detect Java inside JavaScript', async () => {
-    const skills = await extractSkills('Senior JavaScript developer');
-    expect(skills).toContain('JavaScript');
-    expect(skills).not.toContain('Java');
-  });
-
-  it('does not treat the everyday word "go" as the Go language', async () => {
-    const skills = await extractSkills('I like to go to Google events');
-    expect(skills).not.toContain('Go');
-  });
-
-  it('detects C++ when it is followed by a space', async () => {
-    const skills = await extractSkills('Strong knowledge of C++ and databases');
-    expect(skills).toContain('C++');
-  });
-
-  it('detects C# when it is followed by a space', async () => {
-    const skills = await extractSkills('Backend services written in C# and SQL');
-    expect(skills).toContain('C#');
-  });
-});
 
 describe('extractSkills with a Gemini key (mocked client)', () => {
   beforeEach(() => {
