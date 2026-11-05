@@ -1,12 +1,12 @@
-const skillsReference = require('./skillsReference');
+const skillsReference = require("./skillsReference");
 
 function extractSkillsFallback(texte) {
   const lower = texte.toLowerCase();
   const found = [];
   for (const { skill, variants } of skillsReference) {
     const matched = variants.some((v) => {
-      const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`\\b${escaped}\\b`).test(lower);
+      const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(?<!\\w)${escaped}(?!\\w)`).test(lower);
     });
     if (matched) found.push(skill);
   }
@@ -21,11 +21,11 @@ async function extractSkills(texte) {
   }
 
   try {
-    const { GoogleGenAI } = require('@google/genai');
+    const { GoogleGenAI } = require("@google/genai");
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: "gemini-2.5-flash",
       contents: `You are an expert HR recruiter. Analyze this CV text and extract all technical skills, professional know-how, tools, and languages mentioned.
 
 Rules:
@@ -35,13 +35,13 @@ Rules:
 
 CV text:
 ${texte.substring(0, 8000)}`,
-      config: { responseMimeType: 'application/json' },
+      config: { responseMimeType: "application/json" },
     });
 
     const parsed = JSON.parse(response.text);
     return Array.isArray(parsed) ? parsed : extractSkillsFallback(texte);
   } catch (err) {
-    console.warn('AI skill extraction failed, using fallback:', err.message);
+    console.warn("AI skill extraction failed, using fallback:", err.message);
     return extractSkillsFallback(texte);
   }
 }
