@@ -21,6 +21,7 @@ const upload = multer({
     const typesAutorises = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
     ];
     cb(null, typesAutorises.includes(file.mimetype));
   },

@@ -25,7 +25,7 @@ async function requireAuth(req, res, next) {
     }
 
     if (!user.actif) {
-      return res.status(403).json({ message: 'Compte désactivé' });
+      return res.status(401).json({ message: 'Compte désactivé' });
     }
 
     req.user = user;

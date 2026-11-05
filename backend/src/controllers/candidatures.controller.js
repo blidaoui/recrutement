@@ -56,8 +56,7 @@ async function getCandidaturesParOffre(req, res) {
     const offre = await prisma.offre.findUnique({
       where: { id: Number(req.params.offreId) },
     });
-    if (offre.recruteurId !== req.user.id)
-      return res.status(403).json({ message: "Accès interdit" });
+    if (!offre) return res.status(404).json({ message: "Offre introuvable" });
     if (offre.recruteurId !== req.user.id)
       return res.status(403).json({ message: "Accès interdit" });
     const rawCandidatures = await prisma.candidature.findMany({

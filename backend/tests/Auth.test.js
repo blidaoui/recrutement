@@ -320,7 +320,7 @@ describe('GET /api/auth/me and POST /api/auth/logout', () => {
 
     const res = await request(app).get('/api/auth/me').set('Cookie', `token=${tokenFor(user)}`);
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
     expect(res.body.message).toBe('Compte désactivé');
   });
 

@@ -10,7 +10,8 @@ function calculerScoreMatching(skillsCandidat, skillsRequises) {
     return { score: 0, skillsCommunes: [], skillsManquantes: [] };
   }
 
-  const candidatSet = new Set(skillsCandidat.map((s) => s.toLowerCase()));
+  const safeSkillsCandidat = skillsCandidat || [];
+  const candidatSet = new Set(safeSkillsCandidat.map((s) => s.toLowerCase()));
   const requisesSet = new Set(skillsRequises.map((s) => s.toLowerCase()));
 
   const skillsCommunes = skillsRequises.filter((s) => candidatSet.has(s.toLowerCase()));
@@ -19,8 +20,11 @@ function calculerScoreMatching(skillsCandidat, skillsRequises) {
   let score = (skillsCommunes.length / skillsRequises.length) * 100;
 
   // Bonus for extra skills the candidate has beyond the required set
-  const skillsSupplementaires = skillsCandidat.filter((s) => !requisesSet.has(s.toLowerCase()));
-  const bonus = Math.min(skillsSupplementaires.length * 2, 10);
+  // Use a Set to avoid counting duplicate extra skills twice
+  const extraSkills = [...new Set(safeSkillsCandidat.map((s) => s.toLowerCase()))]
+    .filter((s) => !requisesSet.has(s));
+
+  const bonus = Math.min(extraSkills.length * 2, 10);
 
   score = Math.min(score + bonus, 100);
 

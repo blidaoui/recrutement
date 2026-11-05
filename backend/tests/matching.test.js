@@ -95,8 +95,19 @@ describe('calculerScoreMatching', () => {
   });
 
   describe('behaviours to decide on', () => {
-    it.todo('decide: should the bonus apply when no required skill matches? (1 unrelated skill currently gives a score of 2)');
-    it.todo('decide: should duplicate extra skills count twice in the bonus? (["git", "Git"] currently counts as 2)');
-    it.todo('decide: a null or undefined candidate skills list currently throws a TypeError');
+    it('bonus applies even when no required skill matches', () => {
+      const result = calculerScoreMatching(['git'], ['react', 'node']);
+      expect(result.score).toBe(2);
+    });
+
+    it('does not count duplicate extra skills twice', () => {
+      const result = calculerScoreMatching(['git', 'Git'], ['react', 'node']);
+      expect(result.score).toBe(2);
+    });
+
+    it('handles null or undefined candidate skills list without throwing', () => {
+      expect(calculerScoreMatching(null, ['react', 'node']).score).toBe(0);
+      expect(calculerScoreMatching(undefined, ['react', 'node']).score).toBe(0);
+    });
   });
 });
