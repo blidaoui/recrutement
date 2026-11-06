@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import OffreCard from '../components/OffreCard';
 import SearchableSelect from '../components/Searchableselect';
-import { COUNTRIES } from '../data/countries';
+import { COUNTRIES } from '../data/Countries';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { isValidEmail } from '../utils/emailValidation';

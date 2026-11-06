@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { COUNTRIES } from '../data/countries';
+import { COUNTRIES } from '../data/Countries';
 
 const NIVEAUX = ['Non précisé', 'Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'];
 const LANGUES_SUGGESTIONS = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Italien', 'Chinois', 'Portugais', 'Turc', 'Russe'];
